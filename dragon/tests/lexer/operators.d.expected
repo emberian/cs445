@@ -1,0 +1,15 @@
+EQ
+NEQ
+LE
+GT
+GE
+GT
+EQ
+LT
+EQ
+PLUS
+MINUS
+STAR
+SLASH
+EOF
+-- done dumping tokens --

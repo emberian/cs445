@@ -1,0 +1,23 @@
+DIV
+MOD
+AND
+OR
+NOT
+FUNCTION
+PROCEDURE
+TBEGIN
+END
+INTEGER
+REAL
+ARRAY
+OF
+PROGRAM
+DO
+DO
+DO
+DO
+DO
+DO
+ID(boop)
+EOF
+-- done dumping tokens --

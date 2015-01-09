@@ -1,0 +1,20 @@
+div
+mod
+and
+or
+not
+function
+procedure
+begin
+end
+integer
+real
+array
+of
+program
+do
+else
+if
+then
+var
+while boop
