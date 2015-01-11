@@ -1,7 +1,2 @@
-lex.yy.c
-lexer.h
-parser.tab.c
-parser.tab.h
+build
 parser.output
-*.o
-dragon

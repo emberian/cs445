@@ -1,12 +1,11 @@
 %{
-#include "parser.tab.h"
 #include <stdio.h>
+#include "parser.tab.h"
 #include "ast.h"
 %}
 
-%option reentrant
-%option bison-bridge
-%option noyywrap
+%option reentrant bison-bridge noyywrap
+%option full
 
 %%
 
