@@ -13,11 +13,11 @@ ARRAY
 OF
 PROGRAM
 DO
-DO
-DO
-DO
-DO
-DO
+ELSE
+IF
+THEN
+VAR
+WHILE
 ID(boop)
 EOF
 -- done dumping tokens --

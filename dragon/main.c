@@ -14,8 +14,10 @@
 #define DUMP_TOKENS (1 << 0)
 #define DUMP_AST (1 << 1)
 #define NO_PARSE (1 << 2)
+#define NO_ANALYSIS (1 << 3)
+#define NO_CODEGEN (1 << 4)
 
-static char *USAGE = "usage: comp [-lp] <filename>";
+static char *USAGE = "usage: comp [-lpnNC] <filename>";
 
 char *compile_input(char *program_source, size_t len, int options) {
     void *lexer;
@@ -98,6 +100,12 @@ int main(int argc, char **argv) {
                     break;
                 case 'n':
                     options |= NO_PARSE;
+                    break;
+                case 'N':
+                    options |= NO_ANALYSIS;
+                    break;
+                case 'C':
+                    options |= NO_CODEGEN;
                     break;
                 default:
                     fprintf(stderr, "unknown flag: %c\n", *c);
