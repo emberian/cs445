@@ -1,0 +1,12 @@
+PROGRAM `array_assign` WITH ARGS:
+AND VARIABLES:
+  DECLARATIONS WITH TYPE ARRAY [`12` .. `1`] OF INTEGER:
+    `a`
+AND SUBPROGRAMS:
+DOES:
+  ASSIGN
+    VARIABLE `a` INDEXED BY:
+      LIT `1`
+  TO
+    LIT `42`
+-- done dumping ast --

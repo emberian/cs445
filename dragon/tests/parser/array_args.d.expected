@@ -1,0 +1,8 @@
+PROGRAM `array_assign` WITH ARGS:
+AND VARIABLES:
+  DECLARATIONS WITH TYPE ARRAY [`12` .. `4`] OF INTEGER:
+    `a`
+    `b`
+AND SUBPROGRAMS:
+DOES:
+-- done dumping ast --

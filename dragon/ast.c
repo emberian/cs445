@@ -56,8 +56,8 @@ static void ast_print_type(ast_node *node) {
             printf("REAL");
             break;
         case AST_TYPE_ARRAY:
-            printf("ARRAY[`%s` .. `%s`] OF", node->ty_num1->id_name,
-                    node->ty_num2->id_name);
+            printf("ARRAY [`%s` .. `%s`] OF ", node->ty_num1->lit_val->id_name,
+                    node->ty_num2->lit_val->id_name);
             ast_print_type(node->ty_type);
             break;
         default:
@@ -191,7 +191,7 @@ void ast_print(ast_node *node, int indent) {
             if (!node->var_expr) {
                 printf("VARIABLE `%s`\n", node->var_name->id_name);
             } else {
-                printf("VARIABLE `%s` INDEXED BY:", node->var_name->id_name);
+                printf("VARIABLE `%s` INDEXED BY:\n", node->var_name->id_name);
                 ast_print(node->var_expr, indent+INDSZ);
             }
             break;

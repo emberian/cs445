@@ -58,7 +58,7 @@
 ":"  { return COLON; }
 ";"  { return SEMI; }
 
-[a-zA-Z][a-zA-Z0-9]* {
+[a-zA-Z_][a-zA-Z0-9_]* {
     yylval->node = intern(yytext);
     return ID;
 }
@@ -69,6 +69,7 @@
     yylval->node->lit_val = intern(yytext);
     return NUM;
 }
+
 %%
 
 int yyerror(void *scanner, struct ast_node **an, const char *s) {
