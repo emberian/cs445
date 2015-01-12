@@ -1,5 +1,6 @@
 #ifndef _ANAL_H
 #define _ANAL_H
+#include "ast.h"
 
 typedef struct analysis {
     int x;

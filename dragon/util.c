@@ -3,6 +3,7 @@
 #include <assert.h>
 
 #include "util.h"
+#include "ast.h"
 
 list *list_many(int n, ...) {
     va_list args;
@@ -41,14 +42,31 @@ void list_append(list *a, list *b) {
     b->prev = a;
 }
 
-void list_unchain(list *a) {
-    if (a->ptr) free(a->ptr); list_unchain(a->prev); free(a);
+static void list_free_backward(list *a) {
+    if (!a) return;
+    if (a->ptr) ast_free(a->ptr);
+    list_free_backward(a->prev);
+    free(a);
+}
+
+static void list_free_forward(list *a) {
+    if (!a) return;
+    if (a->ptr) ast_free(a->ptr);
+    list_free_forward(a->next);
+    free(a);
+}
+
+void list_free(list *a) {
+    if (!a) return;
+    list_free_backward(a->prev);
+    list_free_forward(a->next);
+    ast_free(a->ptr);
+    free(a);
 }
 
 void list_add(list *a, void *elt) {
     list_append(a, list_new(elt));
 }
-
 
 charvec *charvec_new() {
     charvec *temp = calloc(1, sizeof(charvec));

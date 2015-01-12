@@ -35,6 +35,9 @@ char *compile_input(char *program_source, size_t len, int options) {
         do {
             tok = yylex(&val, lexer);
             print_token(tok, &val);
+            if (tok == NUM || tok == ID) {
+                ast_free(val.node);
+            }
         } while (tok != 0);
         puts("-- done dumping tokens --");
 
@@ -52,14 +55,23 @@ char *compile_input(char *program_source, size_t len, int options) {
     // Phase 1: parse. This gives us a "raw AST", with the names interned, but
     // not much else guaranteed about the program beyond its syntactic
     // validity.
-    yyparse(&program, lexer);
+    if (yyparse(&program, lexer) != 0) {
+        return "";
+    }
 
     yy_delete_buffer(inp, lexer);
     yylex_destroy(lexer);
 
-    ast_print(program);
+    if (options & DUMP_AST) {
+        ast_print(program, 0);
+        puts("-- done dumping ast --");
+    }
 
-    return "";
+    if (options & NO_ANALYSIS) {
+        ast_free(program);
+        return "";
+    }
+
     analysis *anal = anal_new();
 
     // Phase 2: resolve names. This enforces the scoping rules, and fills the

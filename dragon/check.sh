@@ -32,6 +32,18 @@ case $3 in
         fi
         ;;
     parser)
+        mkdir -p $tmp/$1/tests/parser
+        for file in $1/tests/parser/*.d; do
+            declare -a failed
+            $2 -pN $file > $tmp/$file.actual
+            if not diff -u $tmp/$file.actual $file.expected; then
+                failed+=($file)
+            fi
+        done
+        if [ ! ${#failed[@]} = 0 ]; then
+            echo "Parser tests failed: $failed"
+            status=1
+        fi
         ;;
     compile-fail)
         ;;

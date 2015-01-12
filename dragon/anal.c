@@ -5,7 +5,7 @@ analysis *anal_new() {
     return NULL;
 }
 
-void anal_resolution(ast_node *program, analysis *anal) {
+void anal_resolve(ast_node *program, analysis *anal) {
     return;
 }
 

@@ -8,11 +8,10 @@ typedef enum ast_node_type {
     AST_EXPR_APPLY,
     AST_EXPR_BINOP,
     AST_EXPR_LIT,
-    AST_EXPR_NAME,
-    AST_EXPR_RELOP,
     AST_EXPR_UNARY,
     AST_FUNCTION,
     AST_NAME,
+    AST_DECL,
     AST_PROCEDURE,
     AST_PROGRAM,
     AST_STMT_ASSIGN,
@@ -39,10 +38,6 @@ typedef struct ast_node {
             struct ast_node *ty_type, *ty_num1, *ty_num2;
         };
         struct {
-            enum yytokentype decl_type;
-            list *decl_names;
-        };
-        struct {
             struct ast_node *ass_lvalue, *ass_rvalue;
         };
         struct {
@@ -50,14 +45,6 @@ typedef struct ast_node {
         };
         struct {
             struct ast_node *wdo_expr, *wdo_stmt;
-        };
-        struct {
-            struct ast_node *var_name;
-            struct ast_node *var_expr;
-        };
-        struct {
-            struct ast_node *ro_left, *ro_right;
-            enum yytokentype ro_op;
         };
         struct {
             struct ast_node *bin_left, *bin_right;
@@ -75,17 +62,18 @@ typedef struct ast_node {
             struct ast_node *lit_val;
         };
         struct {
-            ast_node_type head_type;
+            struct ast_node *head_type;
             struct ast_node *head_name;
             list *head_args;
-            ast_node_type head_ret_ty;
+            struct ast_node *head_ret_ty;
         };
         struct {
-            list *decl_decls;
-            list *decl_body;
+            struct ast_node *sub_decl_head;
+            list *sub_decl_decls;
+            list *sub_decl_body;
         };
         struct {
-            const char *id_name;
+            char *id_name;
         };
         struct {
             struct ast_node *procs_name;
@@ -97,19 +85,23 @@ typedef struct ast_node {
         struct {
             struct ast_node *id_name_node;
         };
+        struct {
+            struct ast_node *decl_type;
+            list *decl_names;
+        };
+        struct {
+            struct ast_node *var_name, *var_expr;
+        };
     };
 } ast_node;
 
-typedef struct ast_decls {
-    ast_node *type;
-    list *names;
-} ast_decls;
-
-ast_node *ast_subprogram_head_new(ast_node_type, ast_node*, list *, ast_node *);
+ast_node *ast_subprogram_head_new(ast_node *, ast_node *, list *, ast_node *);
 ast_node *ast_subprogram_decl_new(ast_node *, list *, list *);
 ast_node *ast_statement_new(ast_node_type);
 ast_node *ast_variable_new(ast_node*, ast_node *);
 ast_node *ast_new_empty(ast_node_type);
-void ast_print(ast_node *);
+ast_node *ast_decls(list *, ast_node *);
+void ast_print(ast_node *, int);
+void ast_free(ast_node *);
 
 #endif

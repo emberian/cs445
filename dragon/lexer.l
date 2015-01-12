@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include "parser.tab.h"
 #include "ast.h"
+#include "symbol.h"
 %}
 
 %option reentrant bison-bridge noyywrap
@@ -71,6 +72,6 @@
 %%
 
 int yyerror(void *scanner, struct ast_node **an, const char *s) {
-    printf("LEX ERROR: %s\n", s);
+    printf("parse error: %s\n", s);
     return 0;
 }

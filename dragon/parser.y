@@ -55,7 +55,7 @@ extern int yyerror(void *scanner, struct ast_node **, const char *s);
 %token WHILE
 
 %union {
-    struct list *nlist;
+    struct astlist *nlist;
     enum yytokentype token_type;
     struct ast_node *node;
 }
@@ -110,25 +110,24 @@ program : PROGRAM id LPAREN identifier_list RPAREN SEMI
         $$->prog_args = $4;
         $$->prog_decls = $7;
         $$->prog_subprogs = $8;
+        $$->prog_stmts = $9;
         *res = $$;
         }
         ;
 
-identifier_list : id { $$ = list_new((void*)$1); }
+identifier_list : id { $$ = list_new($1); }
                 | identifier_list COMMA id
                 {
                 $$ = $1;
-                list_add($$, (void*)$3);
+                list_add($$, $3);
                 }
                 ;
 
 declarations : declarations VAR identifier_list COLON type SEMI
              {
              $$ = $1;
-             ast_decls *t = M(ast_decls);
-             t->type = $5;
-             t->names = $3;
-             list_add($$, (void*)t);
+             ast_node *t = ast_decls($3, $5);
+             list_add($$, t);
              }
              | { $$ = list_empty(); }
              ;
@@ -147,10 +146,10 @@ standard_type : INTEGER { $$ = ast_new_empty(AST_TYPE_INTEGER); }
               | REAL { $$ = ast_new_empty(AST_TYPE_REAL); }
               ;
 
-subprogram_declarations : subprogram_declarations subprogram_declaration
+subprogram_declarations : subprogram_declarations subprogram_declaration SEMI
                         {
                         $$ = $1;
-                        list_add($$, (void*)$1);
+                        list_add($$, $2);
                         }
                         | { $$ = list_empty(); }
                         ;
@@ -163,11 +162,11 @@ subprogram_declaration : subprogram_head declarations compound_statement
 
 subprogram_head : FUNCTION id arguments COLON standard_type SEMI
                 {
-                $$ = ast_subprogram_head_new(AST_FUNCTION, $2, $3, $5);
+                $$ = ast_subprogram_head_new(ast_new_empty(AST_FUNCTION), $2, $3, $5);
                 }
                 | PROCEDURE id arguments
                 {
-                $$ = ast_subprogram_head_new(AST_PROCEDURE, $2, $3, NULL);
+                $$ = ast_subprogram_head_new(ast_new_empty(AST_PROCEDURE), $2, $3, NULL);
                 }
                 ;
 
@@ -177,17 +176,13 @@ arguments : LPAREN parameter_list RPAREN { $$ = $2; }
 
 parameter_list : identifier_list COLON type
                {
-               ast_decls *t = M(ast_decls);
-               t->type = $3;
-               t->names = $1;
+               ast_node *t = ast_decls($1, $3);
                $$ = list_new(t);
                }
                | parameter_list SEMI identifier_list COLON type
                {
                $$ = $1;
-               ast_decls *t = M(ast_decls);
-               t->type = $5;
-               t->names = $3;
+               ast_node *t = ast_decls($3, $5);
                list_add($$, t);
                }
                ;
@@ -267,10 +262,10 @@ expression_list : expression { $$ = list_new($1); }
 expression : simple_expression
            | simple_expression relop simple_expression
            {
-           $$ = ast_new_empty(AST_EXPR_RELOP);
-           $$->ro_left = $1;
-           $$->ro_op = $2;
-           $$->ro_right = $3;
+           $$ = ast_new_empty(AST_EXPR_BINOP);
+           $$->bin_left = $1;
+           $$->bin_op = $2;
+           $$->bin_right = $3;
            }
            ;
 
@@ -300,18 +295,14 @@ term : factor
      }
      ;
 
-factor : id { $$ = ast_new_empty(AST_EXPR_NAME); $$->id_name_node = $1; }
+factor : id { $$ = $1; }
        | id LPAREN expression_list RPAREN
        {
        $$ = ast_new_empty(AST_EXPR_APPLY);
        $$->app_name = $1;
        $$->app_args = $3;
        }
-       | num
-       {
-       $$ = ast_new_empty(AST_EXPR_LIT);
-       $$->lit_val = yylval.node;
-       }
+       | num { $$ = $1; }
        | LPAREN expression RPAREN { $$ = $2; }
        | NOT factor
        {
@@ -321,28 +312,28 @@ factor : id { $$ = ast_new_empty(AST_EXPR_NAME); $$->id_name_node = $1; }
        }
        ;
 
-sign : PLUS
-     | MINUS
+sign : PLUS { $$ = PLUS; }
+     | MINUS { $$ = MINUS; }
      ;
 
-relop : EQ
-      | NEQ
-      | LT
-      | GT
-      | LE
-      | GE
+relop : EQ { $$ = EQ; }
+      | NEQ { $$ = NEQ; }
+      | LT { $$ = LT; }
+      | GT { $$ = GT; }
+      | LE { $$ = LE; }
+      | GE { $$ = GE; }
       ;
 
-addop : PLUS
-      | MINUS
-      | OR
+addop : PLUS { $$ = PLUS; }
+      | MINUS { $$ = MINUS; }
+      | OR { $$ = OR; }
       ;
 
-mulop : STAR
-      | SLASH
-      | DIV
-      | MOD
-      | AND
+mulop : STAR { $$ = STAR; }
+      | SLASH { $$ = SLASH; }
+      | DIV { $$ = DIV; }
+      | MOD { $$ = MOD; }
+      | AND { $$ = AND; }
       ;
 
 id : ID { $$ = yylval.node; }
