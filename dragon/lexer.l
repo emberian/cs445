@@ -4,6 +4,8 @@
 #include "ast.h"
 #include "symbol.h"
 
+/* http://stackoverflow.com/a/22125500
+   You wouldn't think this would be so annoying! */
 static void update_loc(YYLTYPE *yylloc, char *yytxt){
   static int curr_line = 1;
   static int curr_col  = 1;

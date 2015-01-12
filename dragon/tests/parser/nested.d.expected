@@ -1,0 +1,63 @@
+discarding a node....
+PROGRAM `example` WITH ARGS:
+  `input`
+  `output`
+AND VARIABLES:
+  DECLARATIONS WITH TYPE INTEGER:
+    `x`
+    `y`
+AND SUBPROGRAMS:
+  FUNCTION `gcd` WITH ARGS:
+    DECLARATIONS WITH TYPE INTEGER:
+      `a`
+      `b`
+  RETURNING INTEGER
+  WITH SUBPROGRAMS:
+    FUNCTION `md` WITH ARGS:
+      DECLARATIONS WITH TYPE INTEGER:
+        `a`
+        `b`
+    RETURNING INTEGER
+    WITH SUBPROGRAMS:
+    AND VARIABLES
+    DOES:
+      ASSIGN
+        VARIABLE `md`
+      TO
+        BINOP MOD
+          LEFT:
+            `a`
+          RIGHT:
+            `b`
+      APPLY `foo`
+  AND VARIABLES
+  DOES:
+    IF FOLLOWING IS TRUE:
+      BINOP EQ
+        LEFT:
+          `b`
+        RIGHT:
+          LIT `0`
+    THEN:
+      ASSIGN
+        VARIABLE `gcd`
+      TO
+        `a`
+    OTHERWISE:
+      ASSIGN
+        VARIABLE `gcd`
+      TO
+        APPLY `gcd` TO ARGS:
+          `b`
+          APPLY `md` TO ARGS:
+            `a`
+            `b`
+DOES:
+  APPLY `read` WITH:
+    `x`
+    `y`
+  APPLY `write` WITH:
+    APPLY `gcd` TO ARGS:
+      `x`
+      `y`
+-- done dumping ast --

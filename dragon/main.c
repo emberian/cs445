@@ -71,6 +71,7 @@ char *compile_input(char *program_source, size_t len, int options) {
         puts("-- done dumping ast --");
     }
 
+
     if (options & NO_ANALYSIS) {
         ast_free(program);
         return "";

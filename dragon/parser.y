@@ -112,14 +112,13 @@ program : PROGRAM id LPAREN optional_identifier_list RPAREN SEMI
         compound_statement
         DOT
         {
-        $$ = M(struct ast_node);
-        $$->type = AST_PROGRAM;
-        $$->prog_name = $2;
-        $$->prog_args = $4;
-        $$->prog_decls = $7;
-        $$->prog_subprogs = $8;
-        $$->prog_stmts = $9;
-        *res = $$;
+        *res = M(struct ast_node);
+        (*res)->type = AST_PROGRAM;
+        (*res)->prog_name = $2;
+        (*res)->prog_args = $4;
+        (*res)->prog_decls = $7;
+        (*res)->prog_subprogs = $8;
+        (*res)->prog_stmts = $9;
         }
         ;
 
@@ -166,9 +165,9 @@ subprogram_declarations : subprogram_declarations subprogram_declaration SEMI
                         | { $$ = list_empty(); }
                         ;
 
-subprogram_declaration : subprogram_head declarations compound_statement
+subprogram_declaration : subprogram_head subprogram_declarations declarations compound_statement
                        {
-                       $$ = ast_subprogram_decl_new($1, $2, $3);
+                       $$ = ast_subprogram_decl_new($1, $2, $3, $4);
                        }
                        ;
 

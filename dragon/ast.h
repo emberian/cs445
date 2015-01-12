@@ -70,6 +70,7 @@ typedef struct ast_node {
         };
         struct {
             struct ast_node *sub_decl_head;
+            list *sub_decl_subprogs;
             list *sub_decl_decls;
             list *sub_decl_body;
         };
@@ -100,7 +101,7 @@ typedef struct ast_node {
 } ast_node;
 
 ast_node *ast_subprogram_head_new(ast_node *, ast_node *, list *, ast_node *);
-ast_node *ast_subprogram_decl_new(ast_node *, list *, list *);
+ast_node *ast_subprogram_decl_new(ast_node *, list *, list *, list *);
 ast_node *ast_statement_new(ast_node_type);
 ast_node *ast_variable_new(ast_node*, ast_node *);
 ast_node *ast_new_empty(ast_node_type);

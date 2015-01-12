@@ -16,12 +16,13 @@ ast_node *ast_subprogram_head_new(ast_node *t, ast_node *name, list *args, ast_n
     return n;
 }
 
-ast_node *ast_subprogram_decl_new(ast_node *head, list *decls, list *body) {
+ast_node *ast_subprogram_decl_new(ast_node *head, list *subprogs, list *decls, list *body) {
     ast_node *n = M(ast_node);
     n->type = AST_SUBPROGRAM_DECL;
     n->sub_decl_head = head;
     n->sub_decl_decls = decls;
     n->sub_decl_body = body;
+    n->sub_decl_subprogs = subprogs;
     return n;
 }
 
@@ -181,8 +182,11 @@ void ast_print(ast_node *node, int indent) {
 
         case AST_SUBPROGRAM_DECL:
             ast_print(node->sub_decl_head, indent);
-            INDENT;
-            puts("AND VARIABLES");
+
+            INDENT; puts("WITH SUBPROGRAMS:");
+            FOREACH(sub, node->sub_decl_subprogs, ast_print(sub, indent+INDSZ));
+
+            INDENT; puts("AND VARIABLES");
             FOREACH(decl, node->sub_decl_decls, ast_print(decl, indent+INDSZ));
 
             INDENT; puts("DOES:");
@@ -301,6 +305,7 @@ void ast_free(ast_node *node) {
             ast_free(node->sub_decl_head);
             list_free(node->sub_decl_decls);
             list_free(node->sub_decl_body);
+            list_free(node->sub_decl_subprogs);
             break;
         case AST_SUBPROGRAM_HEAD:
             ast_free(node->head_type);
