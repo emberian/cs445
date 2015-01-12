@@ -1,0 +1,12 @@
+PROGRAM `for_test` WITH ARGS:
+AND VARIABLES:
+AND SUBPROGRAMS:
+DOES:
+  FOR `i` STARTING AT:
+    LIT `0`
+  AND GOING TO:
+    LIT `10`
+  DO:
+    APPLY `write` WITH:
+      `i`
+-- done dumping ast --

@@ -53,6 +53,8 @@ extern int yyerror(void *scanner, struct ast_node **, const char *s);
 %token THEN
 %token VAR
 %token WHILE
+%token FOR
+%token TO
 
 %union {
     struct astlist *nlist;
@@ -234,6 +236,14 @@ statement : variable ASSIGNOP expression
           $$ = ast_new_empty(AST_STMT_WHILE_DO);
           $$->wdo_expr = $2;
           $$->wdo_stmt = $4;
+          }
+          | FOR id ASSIGNOP expression TO expression DO statement SEMI
+          {
+          $$ = ast_new_empty(AST_STMT_FOR);
+          $$->for_name = $2;
+          $$->for_start = $4;
+          $$->for_end = $6;
+          $$->for_body = $8;
           }
           ;
 

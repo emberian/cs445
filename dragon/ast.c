@@ -202,6 +202,15 @@ void ast_print(ast_node *node, int indent) {
             puts(":");
             FOREACH(dec, node->decl_names, ast_print(dec, indent+INDSZ));
             break;
+        case AST_STMT_FOR:
+            INDENT;
+            printf("FOR `%s` STARTING AT:\n", node->for_name->id_name);
+            ast_print(node->for_start, indent+INDSZ);
+            INDENT; puts("AND GOING TO:");
+            ast_print(node->for_end, indent+INDSZ);
+            INDENT; puts("DO:");
+            ast_print(node->for_body, indent+INDSZ);
+            break;
         default:
             INDENT;
             printf("unrecognized ast node %d...\n", node->type);
@@ -287,6 +296,12 @@ void ast_free(ast_node *node) {
         case AST_DECL:
             ast_free(node->decl_type);
             list_free(node->decl_names);
+            break;
+        case AST_STMT_FOR:
+            ast_free(node->for_name);
+            ast_free(node->for_start);
+            ast_free(node->for_end);
+            ast_free(node->for_body);
             break;
         default:
             printf("unrecognized free of ast node %d...\n", node->type);

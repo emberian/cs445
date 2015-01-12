@@ -19,6 +19,7 @@ typedef enum ast_node_type {
     AST_STMT_LIST,
     AST_STMT_PROCEDURE_STMT,
     AST_STMT_WHILE_DO,
+    AST_STMT_FOR,
     AST_SUBPROGRAM_DECL,
     AST_SUBPROGRAM_HEAD,
     AST_TYPE_ARRAY,
@@ -91,6 +92,9 @@ typedef struct ast_node {
         };
         struct {
             struct ast_node *var_name, *var_expr;
+        };
+        struct {
+            struct ast_node *for_name, *for_start, *for_end, *for_body;
         };
     };
 } ast_node;
