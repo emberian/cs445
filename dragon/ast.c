@@ -76,7 +76,9 @@ void ast_print(ast_node *node, int indent) {
             printf("APPLY `%s` TO ARGS:\n", node->app_name->id_name);
             FOREACH(arg, node->app_args, ast_print(arg, indent+INDSZ));
             break;
+
         case AST_EXPR_BINOP:
+
             INDENT;
             printf("BINOP ");
             print_token(node->bin_op, NULL);
@@ -89,61 +91,75 @@ void ast_print(ast_node *node, int indent) {
             ast_print(node->bin_right, indent+INDSZ);
             indent -= INDSZ;
             break;
+
         case AST_EXPR_LIT:
             INDENT;
             printf("LIT `%s`\n", node->lit_val->id_name);
             break;
+
         case AST_EXPR_UNARY:
             INDENT;
             printf("UNARY ");
             print_token(node->un_sign, NULL);
             ast_print(node->un_expr, indent+INDSZ);
             break;
+
         case AST_FUNCTION:
             fprintf(stderr, "error: AST_FUNCTION appeared in ast_print...\n");
             abort();
             break;
+
         case AST_NAME:
             INDENT;
             printf("`%s`\n", node->id_name);
             break;
+
         case AST_PROCEDURE:
             fprintf(stderr, "error: AST_PROCEDURE appeared in ast_print...\n");
             abort();
             break;
+
         case AST_PROGRAM:
             INDENT;
             printf("PROGRAM `%s` WITH ARGS:\n", node->prog_name->id_name);
             FOREACH(arg, node->prog_args, ast_print(arg, indent+INDSZ));
-            INDENT;
-            puts("AND VARIABLES:");
+
+            INDENT; puts("AND VARIABLES:");
             FOREACH(var, node->prog_decls, ast_print(var, indent+INDSZ));
-            INDENT;
-            puts("AND SUBPROGRAMS:");
+
+            INDENT; puts("AND SUBPROGRAMS:");
             FOREACH(sub, node->prog_subprogs, ast_print(sub, indent+INDSZ));
-            INDENT;
-            puts("DOES:");
+
+            INDENT; puts("DOES:");
             FOREACH(stmt, node->prog_stmts, ast_print(stmt, indent+INDSZ));
+
             break;
+
         case AST_STMT_ASSIGN:
-            INDENT;
-            puts("ASSIGN");
+            INDENT; puts("ASSIGN");
             ast_print(node->ass_lvalue, indent+INDSZ);
-            INDENT;
-            puts("TO");
+
+            INDENT; puts("TO");
             ast_print(node->ass_rvalue, indent+INDSZ);
+
             break;
+
         case AST_STMT_IF_ELSE:
             INDENT; puts("IF FOLLOWING IS TRUE:");
             ast_print(node->if_cond, indent+INDSZ);
+
             INDENT; puts("THEN:");
             ast_print(node->if_if, indent+INDSZ);
+
             INDENT; puts("OTHERWISE:");
             ast_print(node->if_else, indent+INDSZ);
+
             break;
+
         case AST_STMT_LIST:
             FOREACH(stmt, node->stmts, ast_print(stmt, indent));
             break;
+
         case AST_STMT_PROCEDURE_STMT:
             INDENT;
             if (!node->procs_args) {
@@ -153,21 +169,27 @@ void ast_print(ast_node *node, int indent) {
                 FOREACH(arg, node->procs_args, ast_print(arg, indent+INDSZ));
             }
             break;
+
         case AST_STMT_WHILE_DO:
             INDENT; puts("WHILE THE FOLLOWING IS TRUE:");
             ast_print(node->wdo_expr, indent+INDSZ);
+
             INDENT; puts("DO:");
             ast_print(node->wdo_stmt, indent+INDSZ);
+
             break;
+
         case AST_SUBPROGRAM_DECL:
             ast_print(node->sub_decl_head, indent);
             INDENT;
             puts("AND VARIABLES");
             FOREACH(decl, node->sub_decl_decls, ast_print(decl, indent+INDSZ));
-            INDENT;
-            puts("DOES:");
+
+            INDENT; puts("DOES:");
             FOREACH(stmt, node->sub_decl_body, ast_print(stmt, indent+INDSZ));
+
             break;
+
         case AST_SUBPROGRAM_HEAD:
             kind = node->head_type->type == AST_FUNCTION ?
                 "FUNCTION" : "PROCEDURE";
@@ -179,6 +201,7 @@ void ast_print(ast_node *node, int indent) {
             ast_print_type(node->head_ret_ty);
             puts("");
             break;
+
         case AST_TYPE_ARRAY:
         case AST_TYPE_INTEGER:
         case AST_TYPE_REAL:
@@ -186,6 +209,7 @@ void ast_print(ast_node *node, int indent) {
             ast_print_type(node);
             puts("");
             break;
+
         case AST_VARIABLE:
             INDENT;
             if (!node->var_expr) {
@@ -195,6 +219,7 @@ void ast_print(ast_node *node, int indent) {
                 ast_print(node->var_expr, indent+INDSZ);
             }
             break;
+
         case AST_DECL:
             INDENT;
             printf("DECLARATIONS WITH TYPE ");
@@ -202,6 +227,7 @@ void ast_print(ast_node *node, int indent) {
             puts(":");
             FOREACH(dec, node->decl_names, ast_print(dec, indent+INDSZ));
             break;
+
         case AST_STMT_FOR:
             INDENT;
             printf("FOR `%s` STARTING AT:\n", node->for_name->id_name);
@@ -211,6 +237,7 @@ void ast_print(ast_node *node, int indent) {
             INDENT; puts("DO:");
             ast_print(node->for_body, indent+INDSZ);
             break;
+
         default:
             INDENT;
             printf("unrecognized ast node %d...\n", node->type);
