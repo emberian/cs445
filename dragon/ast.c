@@ -127,7 +127,10 @@ void ast_print(ast_node *node, int indent) {
             break;
         case AST_STMT_ASSIGN:
             INDENT;
-            printf("ASSIGN `%s` TO:\n", node->ass_lvalue->var_name->id_name);
+            puts("ASSIGN");
+            ast_print(node->ass_lvalue, indent+INDSZ);
+            INDENT;
+            puts("TO");
             ast_print(node->ass_rvalue, indent+INDSZ);
             break;
         case AST_STMT_IF_ELSE:

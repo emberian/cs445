@@ -20,10 +20,14 @@ AND SUBPROGRAMS:
         RIGHT:
           LIT `0`
     THEN:
-      ASSIGN `gcd` TO:
+      ASSIGN
+        VARIABLE `gcd`
+      TO
         `a`
     OTHERWISE:
-      ASSIGN `gcd` TO:
+      ASSIGN
+        VARIABLE `gcd`
+      TO
         APPLY `gcd` TO ARGS:
           `b`
           BINOP MOD
