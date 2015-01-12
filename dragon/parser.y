@@ -70,6 +70,7 @@ extern int yyerror(void *scanner, struct ast_node **, const char *s);
 %type <nlist> statement_list
 %type <nlist> subprogram_declarations
 %type <nlist> compound_statement
+%type <nlist> optional_identifier_list
 %type <node> expression
 %type <node> factor
 %type <node> id
@@ -98,7 +99,7 @@ extern int yyerror(void *scanner, struct ast_node **, const char *s);
 
 %%
 
-program : PROGRAM id LPAREN identifier_list RPAREN SEMI
+program : PROGRAM id LPAREN optional_identifier_list RPAREN SEMI
         declarations
         subprogram_declarations
         compound_statement
@@ -114,6 +115,10 @@ program : PROGRAM id LPAREN identifier_list RPAREN SEMI
         *res = $$;
         }
         ;
+
+optional_identifier_list : identifier_list
+                         | { $$ = list_empty(); }
+                         ;
 
 identifier_list : id { $$ = list_new($1); }
                 | identifier_list COMMA id
