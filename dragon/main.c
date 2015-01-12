@@ -32,8 +32,9 @@ char *compile_input(char *program_source, size_t len, int options) {
 
         int tok;
         YYSTYPE val;
+        YYLTYPE loc;
         do {
-            tok = yylex(&val, lexer);
+            tok = yylex(&val, &loc, lexer);
             print_token(tok, &val);
             if (tok == NUM || tok == ID) {
                 ast_free(val.node);

@@ -3,9 +3,32 @@
 #include "parser.tab.h"
 #include "ast.h"
 #include "symbol.h"
+
+static void update_loc(YYLTYPE *yylloc, char *yytxt){
+  static int curr_line = 1;
+  static int curr_col  = 1;
+
+  yylloc->first_line   = curr_line;
+  yylloc->first_column = curr_col;
+
+  {char * s; for(s = yytxt; *s != '\0'; s++){
+    if(*s == '\n'){
+      curr_line++;
+      curr_col = 1;
+    }else{
+      curr_col++;
+    }
+  }}
+
+  yylloc->last_line   = curr_line;
+  yylloc->last_column = curr_col-1;
+}
+
+#define YY_USER_ACTION update_loc(yylloc, yytext);
+
 %}
 
-%option reentrant bison-bridge noyywrap
+%option reentrant bison-bridge bison-locations noyywrap yylineno
 %option full
 
 %%
@@ -74,7 +97,7 @@
 
 %%
 
-int yyerror(void *scanner, struct ast_node **an, const char *s) {
-    printf("parse error: %s\n", s);
+int yyerror(YYLTYPE *loc, struct ast_node **an, void *scanner, const char *s) {
+    printf("parse error at line %d: %s\n", loc->first_line, s);
     return 0;
 }

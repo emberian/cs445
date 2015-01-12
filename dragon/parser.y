@@ -5,7 +5,7 @@
 #include "util.h"
 #include "lexer.h"
 
-extern int yyerror(void *scanner, struct ast_node **, const char *s);
+extern int yyerror(YYLTYPE *, struct ast_node **, void *scanner, const char *s);
 
 %}
 
@@ -99,6 +99,8 @@ extern int yyerror(void *scanner, struct ast_node **, const char *s);
 
 %destructor { list_free($$); } <nlist>
 %destructor { ast_free($$); } <node>
+
+%locations
 
 %start program
 
