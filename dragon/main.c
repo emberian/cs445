@@ -56,6 +56,9 @@ char *compile_input(char *program_source, size_t len, int options) {
     // not much else guaranteed about the program beyond its syntactic
     // validity.
     if (yyparse(&program, lexer) != 0) {
+        ast_free(program);
+        yy_delete_buffer(inp, lexer);
+        yylex_destroy(lexer);
         return "";
     }
 

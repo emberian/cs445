@@ -97,6 +97,9 @@ extern int yyerror(void *scanner, struct ast_node **, const char *s);
 %parse-param {struct ast_node **res}
 %parse-param {void * scanner}
 
+%destructor { list_free($$); } <nlist>
+%destructor { ast_free($$); } <node>
+
 %start program
 
 %%
