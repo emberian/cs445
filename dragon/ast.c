@@ -11,6 +11,7 @@
 /* pretty printers */
 
 void print_expr(struct ast_expr *e, int indent) {
+    if (e == NULL) return;
     INDENT;
     switch (e->tag) {
         case EXPR_APP:
@@ -67,6 +68,7 @@ void print_expr(struct ast_expr *e, int indent) {
 }
 
 void print_stmt(struct ast_stmt *s, int indent) {
+    if (s == NULL) return;
     switch (s->tag) {
         case STMT_ASSIGN:
             INDENT; puts("ASSIGN");
@@ -127,6 +129,7 @@ void print_stmt(struct ast_stmt *s, int indent) {
 }
 
 void print_type(struct ast_type *t, int indent) {
+    if (t == NULL) return;
     INDENT;
     switch (t->tag) {
         case TYPE_INTEGER:
@@ -162,6 +165,7 @@ void print_type(struct ast_type *t, int indent) {
 }
 
 void print_decls(struct ast_decls *d, int indent) {
+    if (d == NULL) return;
     INDENT; puts("DECLARATION WITH TYPE");
     print_type(d->type, indent+INDSZ);
     INDENT; puts("OF NAMES:");
@@ -169,6 +173,7 @@ void print_decls(struct ast_decls *d, int indent) {
 }
 
 void print_subprogram_head(struct ast_subhead *h, int indent) {
+    if (h == NULL) return;
     char *kind = h->type == SUB_FUNCTION ?
         "FUNCTION" : "PROCEDURE";
     INDENT;
@@ -181,6 +186,7 @@ void print_subprogram_head(struct ast_subhead *h, int indent) {
 }
 
 void print_subprogram_decl(struct ast_subdecl *d, int indent) {
+    if (d == NULL) return;
     print_subprogram_head(d->head, indent);
 
     INDENT; puts("WITH SUBPROGRAMS:");
@@ -194,6 +200,7 @@ void print_subprogram_decl(struct ast_subdecl *d, int indent) {
 }
 
 void print_path(struct ast_path *p, int indent) {
+    if (p == NULL) return;
     INDENT;
     for (struct node *temp = &p->components->inner; temp; temp = temp->next) {
         printf("%s", temp->elt);
@@ -205,6 +212,7 @@ void print_path(struct ast_path *p, int indent) {
 }
 
 void print_program(struct ast_program *p, int indent) {
+    if (p == NULL) return;
     INDENT;
 
     printf("PROGRAM `%s` WITH ARGS:\n", p->name);
@@ -225,9 +233,10 @@ void print_program(struct ast_program *p, int indent) {
 /* destructors */
 
 void free_expr(struct ast_expr *e) {
+    if (e == NULL) return;
     switch (e->tag) {
         case EXPR_APP:
-            LFOREACH(struct ast_expr *, arg, e->apply.args, free_expr(arg));
+            list_free(e->apply.args);
             free_path(e->apply.name);
             break;
 
@@ -266,6 +275,7 @@ void free_expr(struct ast_expr *e) {
 }
 
 void free_stmt(struct ast_stmt *s) {
+    if (s == NULL) return;
     switch (s->tag) {
         case STMT_ASSIGN:
             free_expr(s->assign.lvalue);
@@ -279,14 +289,12 @@ void free_stmt(struct ast_stmt *s) {
             break;
 
         case STMT_STMTS:
-            LFOREACH(struct ast_stmt *, stmt, s->stmts, free_stmt(stmt));
+            list_free(s->stmts);
             break;
 
         case STMT_PROC:
             free_path(s->apply.name);
-            if (s->apply.args) {
-                LFOREACH(struct ast_expr *, arg, s->apply.args, free_expr(arg));
-            }
+            list_free(s->apply.args);
             break;
 
         case STMT_WDO:
@@ -309,6 +317,7 @@ void free_stmt(struct ast_stmt *s) {
 }
 
 void free_type(struct ast_type *t) {
+    if (t == NULL) return;
     switch (t->tag) {
         case TYPE_INTEGER:
             break;
@@ -341,37 +350,42 @@ void free_type(struct ast_type *t) {
 }
 
 void free_decls(struct ast_decls *d) {
+    if (d == NULL) return;
     free_type(d->type);
-    LFOREACH(char *, name, d->names, free(name));
+    list_free(d->names);
     free(d);
 }
 
 void free_subprogram_head(struct ast_subhead *h) {
+    if (h == NULL) return;
     free(h->name);
-    LFOREACH(char *, arg, h->args, free(arg));
+    list_free(h->args);
     free_type(h->retty);
     free(h);
 }
 
 void free_subprogram_decl(struct ast_subdecl *d) {
+    if (d == NULL) return;
     free_subprogram_head(d->head);
 
-    LFOREACH(struct ast_subdecl *, sub, d->subprogs, free_subprogram_decl(sub));
-    LFOREACH(struct ast_decls *, decl, d->decls, free_decls(decl));
+    list_free(d->subprogs);
+    list_free(d->decls);
     free_stmt(d->body);
     free(d);
 }
 
 void free_path(struct ast_path *p) {
-    LFOREACH(char *, comp, p->components, free(comp));
+    if (p == NULL) return;
+    list_free(p->components);
     free(p);
 }
 
 void free_program(struct ast_program *p) {
+    if (p == NULL) return;
     free(p->name);
-    LFOREACH(char *, arg, p->args, free(arg));
-    LFOREACH(struct ast_decls *, var, p->decls, free_decls(var));
-    LFOREACH(struct ast_subdecl *, sub, p->subprogs, free_subprogram_decl(sub));
+    list_free(p->args);
+    list_free(p->decls);
+    list_free(p->subprogs);
     free_stmt(p->body);
     free(p);
 }

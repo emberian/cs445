@@ -81,6 +81,7 @@ struct ast_program;
 %destructor { free_subprogram_decl($$); } <subdecl>
 %destructor { free_type($$); } <type>
 %destructor { list_free($$); } <nlist>
+%destructor { abort(); } <*>
 
 %type <expr> expression
 %type <expr> factor
