@@ -8,5 +8,5 @@ DOES:
     LIT `10`
   DO:
     APPLY `write` WITH:
-      `i`
+      i
 -- done dumping ast --

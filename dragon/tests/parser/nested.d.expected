@@ -1,63 +1,73 @@
-discarding a node....
 PROGRAM `example` WITH ARGS:
   `input`
   `output`
 AND VARIABLES:
-  DECLARATIONS WITH TYPE INTEGER:
+  DECLARATION WITH TYPE:
+    INTEGER
+  OF NAMES:
     `x`
     `y`
 AND SUBPROGRAMS:
   FUNCTION `gcd` WITH ARGS:
-    DECLARATIONS WITH TYPE INTEGER:
+    DECLARATION WITH TYPE:
+      INTEGER
+    OF NAMES:
       `a`
       `b`
-  RETURNING INTEGER
+  RETURNING:
+    INTEGER
   WITH SUBPROGRAMS:
     FUNCTION `md` WITH ARGS:
-      DECLARATIONS WITH TYPE INTEGER:
+      DECLARATION WITH TYPE:
+        INTEGER
+      OF NAMES:
         `a`
         `b`
-    RETURNING INTEGER
+    RETURNING:
+      INTEGER
     WITH SUBPROGRAMS:
     AND VARIABLES
     DOES:
       ASSIGN
-        VARIABLE `md`
-      TO
         BINOP MOD
           LEFT:
-            `a`
+            a
           RIGHT:
-            `b`
+            b
+      TO
+        md
       APPLY `foo`
   AND VARIABLES
   DOES:
     IF FOLLOWING IS TRUE:
       BINOP EQ
         LEFT:
-          `b`
+          b
         RIGHT:
           LIT `0`
     THEN:
       ASSIGN
-        VARIABLE `gcd`
+        a
       TO
-        `a`
+        gcd
     OTHERWISE:
       ASSIGN
-        VARIABLE `gcd`
+        APPLY `gcd`
+        TO ARGS:
+          b
+          APPLY `md`
+          TO ARGS:
+            a
+            b
       TO
-        APPLY `gcd` TO ARGS:
-          `b`
-          APPLY `md` TO ARGS:
-            `a`
-            `b`
+        gcd
 DOES:
   APPLY `read` WITH:
-    `x`
-    `y`
+    x
+    y
   APPLY `write` WITH:
-    APPLY `gcd` TO ARGS:
-      `x`
-      `y`
+    APPLY `gcd`
+    TO ARGS:
+      x
+      y
 -- done dumping ast --

@@ -144,13 +144,13 @@ struct ast_program {
 };
 
 struct ast_decls *ast_decls             ( struct list *, struct ast_type *);
-struct ast_expr *ast_expr               ( enum exprs, ...);
-struct ast_stmt *ast_stmt               ( enum stmts, ...);
-struct ast_type *ast_type               ( enum types, ...);
 struct ast_subhead *ast_subprogram_head ( enum subprogs, char *, struct list *, struct ast_type *);
 struct ast_subdecl *ast_subprogram_decl ( struct ast_subhead *, struct list *, struct list *, struct ast_stmt *);
 struct ast_path *ast_path               ( char *);
 struct ast_program *ast_program         ( char *, struct list *, struct list *, struct list *, struct ast_stmt *);
+struct ast_expr *ast_expr               ( enum exprs, ...);
+struct ast_stmt *ast_stmt               ( enum stmts, ...);
+struct ast_type *ast_type               ( enum types, ...);
 
 void ast_path_append(struct ast_path *, char *);
 

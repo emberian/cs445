@@ -15,8 +15,9 @@ void print_expr(struct ast_expr *e, int indent) {
     INDENT;
     switch (e->tag) {
         case EXPR_APP:
-            puts("APPLY:");
-            print_path(e->apply.name, indent+INDSZ);
+            printf("APPLY `");
+            print_path(e->apply.name, 0);
+            printf("`\n");
             INDENT; puts("TO ARGS:");
             LFOREACH(struct ast_expr *, arg, e->apply.args, print_expr(arg, indent+INDSZ));
             break;
@@ -52,6 +53,7 @@ void print_expr(struct ast_expr *e, int indent) {
 
         case EXPR_PATH:
             print_path(e->path, 0);
+            puts("");
             break;
 
         case EXPR_UN:
@@ -95,11 +97,13 @@ void print_stmt(struct ast_stmt *s, int indent) {
 
         case STMT_PROC:
             INDENT;
-            printf("APPLY:\n");
-            print_path(s->apply.name, indent+INDSZ);
+            printf("APPLY `");
+            print_path(s->apply.name, 0);
             if (s->apply.args) {
-                INDENT; puts("WITH:");
+                puts("` WITH:");
                 LFOREACH(struct ast_expr *, arg, s->apply.args, print_expr(arg, indent+INDSZ));
+            } else {
+                puts("`");
             }
             break;
 
@@ -166,10 +170,12 @@ void print_type(struct ast_type *t, int indent) {
 
 void print_decls(struct ast_decls *d, int indent) {
     if (d == NULL) return;
-    INDENT; puts("DECLARATION WITH TYPE");
+    INDENT; puts("DECLARATION WITH TYPE:");
     print_type(d->type, indent+INDSZ);
     INDENT; puts("OF NAMES:");
+    indent += INDSZ;
     LFOREACH(char *, name, d->names, INDENT; printf("`%s`\n", name););
+    indent -= INDSZ;
 }
 
 void print_subprogram_head(struct ast_subhead *h, int indent) {
@@ -178,11 +184,10 @@ void print_subprogram_head(struct ast_subhead *h, int indent) {
         "FUNCTION" : "PROCEDURE";
     INDENT;
     printf("%s `%s` WITH ARGS:\n", kind, h->name);
-    LFOREACH(char *, arg, h->args, INDENT; printf("`%s`\n", arg));
+    LFOREACH(struct ast_decls*, arg, h->args, print_decls(arg, indent+INDSZ););
     INDENT;
-    printf("RETURNING:");
+    puts("RETURNING:");
     print_type(h->retty, indent+INDSZ);
-    puts("");
 }
 
 void print_subprogram_decl(struct ast_subdecl *d, int indent) {
@@ -208,7 +213,6 @@ void print_path(struct ast_path *p, int indent) {
             putchar('.');
         }
     }
-    puts("");
 }
 
 void print_program(struct ast_program *p, int indent) {
@@ -216,7 +220,9 @@ void print_program(struct ast_program *p, int indent) {
     INDENT;
 
     printf("PROGRAM `%s` WITH ARGS:\n", p->name);
+    indent += INDSZ;
     LFOREACH(char *, arg, p->args, INDENT; printf("`%s`\n", arg));
+    indent -= INDSZ;
 
     INDENT; puts("AND VARIABLES:");
     LFOREACH(struct ast_decls *, var, p->decls, print_decls(var, indent+INDSZ));
@@ -392,18 +398,6 @@ void free_program(struct ast_program *p) {
 
 /* constructors */
 
-struct ast_expr *ast_expr (enum exprs tag, ...) {
-    return NULL;
-}
-
-struct ast_stmt *ast_stmt (enum stmts tag, ...) {
-    return NULL;
-}
-
-struct ast_type *ast_type (enum types tag, ...) {
-    return NULL;
-}
-
 struct ast_path *ast_path (char *comp) {
     struct ast_path *p = M(struct ast_path);
     p->components = list_new(comp, free);
@@ -434,7 +428,7 @@ struct ast_subhead *ast_subprogram_head(enum subprogs t, char *name, struct list
     return n;
 }
 
-struct ast_subdecl *ast_subprogram_decl(struct ast_subhead *head, struct list *decls, struct list *subprogs, struct ast_stmt *body) {
+struct ast_subdecl *ast_subprogram_decl(struct ast_subhead *head, struct list *subprogs, struct list *decls, struct ast_stmt *body) {
     struct ast_subdecl *n = M(struct ast_subdecl);
     n->head = head;
     n->decls = decls;
@@ -448,4 +442,124 @@ struct ast_decls *ast_decls(struct list *names, struct ast_type *type) {
     n->names = names;
     n->type = type;
     return n;
+}
+
+struct ast_expr *ast_expr(enum exprs tag, ...) {
+    va_list args;
+    va_start(args, tag);
+
+    struct ast_expr *e = M(struct ast_expr);
+    e->tag = tag;
+    switch (tag) {
+        case EXPR_APP:
+            e->apply.name = va_arg(args, struct ast_path *);
+            e->apply.args = va_arg(args, struct list *);
+            break;
+        case EXPR_BIN:
+            e->binary.left = va_arg(args, struct ast_expr *);
+            e->binary.op = va_arg(args, enum yytokentype);
+            e->binary.right = va_arg(args, struct ast_expr *);
+            break;
+        case EXPR_DEREF:
+            e->deref.expr = va_arg(args, struct ast_expr *);
+            break;
+        case EXPR_IDX:
+            e->idx.path = va_arg(args, struct ast_path *);
+            e->idx.expr = va_arg(args, struct ast_expr *);
+            break;
+        case EXPR_LIT:
+            e->lit = va_arg(args, char *);
+            break;
+        case EXPR_PATH:
+            e->path = va_arg(args, struct ast_path *);
+            break;
+        case EXPR_UN:
+            e->unary.op = va_arg(args, enum yytokentype);
+            e->unary.expr = va_arg(args, struct ast_expr *);
+            break;
+        default:
+            fprintf(stderr, "unknown expr type...");
+            free(e);
+            va_end(args);
+            return NULL;
+    }
+    va_end(args);
+    return e;
+}
+
+struct ast_stmt *ast_stmt(enum stmts tag, ...) {
+    va_list args;
+    va_start(args, tag);
+
+    struct ast_stmt *s = M(struct ast_stmt);
+    s->tag = tag;
+    switch (tag) {
+        case STMT_ASSIGN:
+            s->assign.rvalue = va_arg(args, struct ast_expr *);
+            s->assign.lvalue = va_arg(args, struct ast_expr *);
+            break;
+        case STMT_FOR:
+            s->foor.id = va_arg(args, char *);
+            s->foor.start = va_arg(args, struct ast_expr *);
+            s->foor.end = va_arg(args, struct ast_expr *);
+            s->foor.body = va_arg(args, struct ast_stmt *);
+            break;
+        case STMT_ITE:
+            s->ite.cond = va_arg(args, struct ast_expr *);
+            s->ite.then = va_arg(args, struct ast_stmt *);
+            s->ite.elze = va_arg(args, struct ast_stmt *);
+            break;
+        case STMT_PROC:
+            s->apply.name = va_arg(args, struct ast_path *);
+            s->apply.args = va_arg(args, struct list *);
+            break;
+        case STMT_STMTS:
+            s->stmts = va_arg(args, struct list *);
+            break;
+        case STMT_WDO:
+            s->wdo.cond = va_arg(args, struct ast_expr *);
+            s->wdo.body = va_arg(args, struct ast_stmt *);
+            break;
+        default:
+            fprintf(stderr, "unkwown stmt type...\n");
+            free(s);
+            va_end(args);
+            return NULL;
+    }
+
+    va_end(args);
+    return s;
+}
+
+struct ast_type *ast_type(enum types tag, ...) {
+    va_list args;
+    va_start(args, tag);
+
+    struct ast_type *t = M(struct ast_type);
+    t->tag = tag;
+    switch (tag) {
+        case TYPE_ARRAY:
+            t->array.lower = va_arg(args, char *);
+            t->array.upper = va_arg(args, char *);
+            t->array.elts = va_arg(args, struct ast_type *);
+            break;
+        case TYPE_POINTER:
+            t->pointer = va_arg(args, struct ast_type *);
+            break;
+        case TYPE_FUNCTION:
+        case TYPE_RECORD:
+            fprintf(stderr, "function, and record types NYI\n");
+            abort();
+            break;
+        case TYPE_INTEGER:
+        case TYPE_REAL:
+            break;
+        default:
+            fprintf(stderr, "unkwown type type...\n");
+            free(t);
+            va_end(args);
+            return NULL;
+    }
+    va_end(args);
+    return t;
 }
