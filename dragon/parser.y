@@ -5,7 +5,7 @@
 #include "lexer.h"
 #define CB (void (*)(void*))
 
-extern int yyerror(YYLTYPE *, struct ast_program **, void *scanner, const char *s);
+extern int yyerror(YYLTYPE *, struct ast_program **, int options, void *scanner, const char *s);
 
 %}
 
@@ -114,6 +114,7 @@ struct ast_program;
 %pure-parser
 %lex-param {void * scanner}
 %parse-param {struct ast_program **res}
+%parse-param {int options}
 %parse-param {void * scanner}
 
 %locations

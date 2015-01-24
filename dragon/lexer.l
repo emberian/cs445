@@ -100,7 +100,7 @@ static void update_loc(YYLTYPE *yylloc, char *yytxt){
 
 %%
 
-int yyerror(YYLTYPE *loc, struct ast_program **p, void *scanner, const char *s) {
+int yyerror(YYLTYPE *loc, struct ast_program **p, int options, void *scanner, const char *s) {
     printf("parse error at line %d: %s\n", loc->first_line, s);
     return 0;
 }
