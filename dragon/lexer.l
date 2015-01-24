@@ -88,13 +88,13 @@ static void update_loc(YYLTYPE *yylloc, char *yytxt){
 [a-zA-Z_][a-zA-Z0-9_]* {
 #define _POSIX_SOURCE 200809L
 #include <string.h>
-    yylval->name = strndup(yytext, yyleng-1);
+    yylval->name = strndup(yytext, yyleng);
     return ID;
 }
 
 [0-9]+(\.[0-9]+)?([eE](\+|\-)?[0-9]+)? {
 #include <string.h>
-    yylval->name = strndup(yytext, yyleng-1);
+    yylval->name = strndup(yytext, yyleng);
     return NUM;
 }
 
