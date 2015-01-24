@@ -4,109 +4,172 @@
 #include "util.h"
 #include "parser.tab.h"
 
-typedef enum ast_node_type {
-    AST_EXPR_APPLY,
-    AST_EXPR_BINOP,
-    AST_EXPR_LIT,
-    AST_EXPR_UNARY,
-    AST_FUNCTION,
-    AST_NAME,
-    AST_DECL,
-    AST_PROCEDURE,
-    AST_PROGRAM,
-    AST_STMT_ASSIGN,
-    AST_STMT_IF_ELSE,
-    AST_STMT_LIST,
-    AST_STMT_PROCEDURE_STMT,
-    AST_STMT_WHILE_DO,
-    AST_STMT_FOR,
-    AST_SUBPROGRAM_DECL,
-    AST_SUBPROGRAM_HEAD,
-    AST_TYPE_ARRAY,
-    AST_TYPE_INTEGER,
-    AST_TYPE_REAL,
-    AST_VARIABLE,
-} ast_node_type;
+enum exprs {
+    EXPR_APP,
+    EXPR_BIN,
+    EXPR_DEREF,
+    EXPR_IDX,
+    EXPR_LIT,
+    EXPR_PATH,
+    EXPR_UN,
+};
 
-typedef struct ast_node {
-    ast_node_type type;
+enum stmts {
+    STMT_ASSIGN,
+    STMT_FOR,
+    STMT_ITE,
+    STMT_PROC,
+    STMT_STMTS,
+    STMT_WDO,
+};
+
+enum subprogs {
+    SUB_FUNCTION,
+    SUB_PROCEDURE,
+};
+
+enum types {
+    TYPE_ARRAY,
+    TYPE_FUNCTION,
+    TYPE_INTEGER,
+    TYPE_POINTER,
+    TYPE_REAL,
+    TYPE_RECORD,
+};
+
+struct ast_type {
+    enum types tag;
     union {
         struct {
-            struct ast_node *prog_name;
-            list *prog_args, *prog_decls, *prog_subprogs, *prog_stmts;
-        };
-        struct {
-            struct ast_node *ty_type, *ty_num1, *ty_num2;
-        };
-        struct {
-            struct ast_node *ass_lvalue, *ass_rvalue;
-        };
-        struct {
-            struct ast_node *if_cond, *if_if, *if_else;
-        };
-        struct {
-            struct ast_node *wdo_expr, *wdo_stmt;
-        };
-        struct {
-            struct ast_node *bin_left, *bin_right;
-            enum yytokentype bin_op;
-        };
-        struct {
-            struct ast_node *un_expr;
-            enum yytokentype un_sign;
-        };
-        struct {
-            list *app_args;
-            struct ast_node *app_name;
-        };
-        struct {
-            struct ast_node *lit_val;
-        };
-        struct {
-            struct ast_node *head_type;
-            struct ast_node *head_name;
-            list *head_args;
-            struct ast_node *head_ret_ty;
-        };
-        struct {
-            struct ast_node *sub_decl_head;
-            list *sub_decl_subprogs;
-            list *sub_decl_decls;
-            list *sub_decl_body;
-        };
-        struct {
-            char *id_name;
-        };
-        struct {
-            struct ast_node *procs_name;
-            list *procs_args;
-        };
-        struct {
-            list *stmts;
-        };
-        struct {
-            struct ast_node *id_name_node;
-        };
-        struct {
-            struct ast_node *decl_type;
-            list *decl_names;
-        };
-        struct {
-            struct ast_node *var_name, *var_expr;
-        };
-        struct {
-            struct ast_node *for_name, *for_start, *for_end, *for_body;
-        };
+            char *lower, *upper;
+            struct ast_type *elts;
+        } array;
+        struct ast_type *pointer;
     };
-} ast_node;
+};
 
-ast_node *ast_subprogram_head_new(ast_node *, ast_node *, list *, ast_node *);
-ast_node *ast_subprogram_decl_new(ast_node *, list *, list *, list *);
-ast_node *ast_statement_new(ast_node_type);
-ast_node *ast_variable_new(ast_node*, ast_node *);
-ast_node *ast_new_empty(ast_node_type);
-ast_node *ast_decls(list *, ast_node *);
-void ast_print(ast_node *, int);
-void ast_free(ast_node *);
+/**
+ * Declare all of the `names` to have `type`
+ */
+struct ast_decls {
+    struct list *names;
+    struct ast_type *type;
+};
+
+struct ast_stmt {
+    enum stmts tag;
+    union {
+        struct list *stmts;
+
+        struct {
+            struct ast_expr *rvalue, *lvalue;
+        } assign;
+
+        struct {
+            struct ast_expr *cond;
+            struct ast_stmt *then, *elze;
+        } ite;
+
+        struct {
+            struct ast_expr *cond;
+            struct ast_stmt *body;
+        } wdo;
+
+        struct {
+            char *id;
+            struct ast_expr *start, *end;
+            struct ast_stmt *body;
+        } foor;
+
+        struct {
+            struct ast_path *name;
+            struct list *args;
+        } apply;
+    };
+};
+
+struct ast_expr {
+    enum exprs tag;
+    union {
+        struct ast_path *path;
+        char *lit;
+
+        struct {
+            struct ast_path *path;
+            struct ast_expr *expr;
+        } idx;
+
+        struct {
+            struct ast_expr *expr;
+        } deref;
+
+        struct {
+            struct ast_path *name;
+            struct list *args;
+        } apply;
+
+        struct {
+            enum yytokentype op;
+            struct ast_expr *expr;
+        } unary;
+
+        struct {
+            enum yytokentype op;
+            struct ast_expr *left, *right;
+        } binary;
+    };
+};
+
+struct ast_subdecl {
+    struct ast_subhead *head;
+    struct list *decls, *subprogs;
+    struct ast_stmt *body;
+};
+
+struct ast_subhead {
+    enum subprogs type;
+    char *name;
+    struct list *args;
+    struct ast_type *retty;
+};
+
+struct ast_path {
+    struct list *components;
+};
+
+struct ast_program {
+    char *name;
+    struct list *args, *decls, *subprogs;
+    struct ast_stmt *body;
+};
+
+struct ast_decls *ast_decls             ( struct list *, struct ast_type *);
+struct ast_expr *ast_expr               ( enum exprs, ...);
+struct ast_stmt *ast_stmt               ( enum stmts, ...);
+struct ast_type *ast_type               ( enum types, ...);
+struct ast_subhead *ast_subprogram_head ( enum subprogs, char *, struct list *, struct ast_type *);
+struct ast_subdecl *ast_subprogram_decl ( struct ast_subhead *, struct list *, struct list *, struct ast_stmt *);
+struct ast_path *ast_path               ( char *);
+struct ast_program *ast_program         ( char *, struct list *, struct list *, struct list *, struct ast_stmt *);
+
+void ast_path_append(struct ast_path *, char *);
+
+void print_expr            ( struct ast_expr *, int);
+void print_stmt            ( struct ast_stmt *, int);
+void print_type            ( struct ast_type *, int);
+void print_decls           ( struct ast_decls *, int);
+void print_subprogram_head ( struct ast_subhead *, int);
+void print_subprogram_decl ( struct ast_subdecl *, int);
+void print_path            ( struct ast_path *, int);
+void print_program         ( struct ast_program *, int);
+
+void free_expr            ( struct ast_expr *);
+void free_stmt            ( struct ast_stmt *);
+void free_type            ( struct ast_type *);
+void free_decls           ( struct ast_decls *);
+void free_subprogram_head ( struct ast_subhead *);
+void free_subprogram_decl ( struct ast_subdecl *);
+void free_path            ( struct ast_path *);
+void free_program         ( struct ast_program *);
 
 #endif

@@ -22,7 +22,7 @@ static char *USAGE = "usage: comp [-lpnNC] <filename>";
 char *compile_input(char *program_source, size_t len, int options) {
     void *lexer;
 
-    ast_node *program = NULL;
+    struct ast_program *program = NULL;
 
     if (options & DUMP_TOKENS) {
         // duplicate the lexer init/destroy to not affect the later parse.
@@ -37,7 +37,7 @@ char *compile_input(char *program_source, size_t len, int options) {
             tok = yylex(&val, &loc, lexer);
             print_token(tok, &val);
             if (tok == NUM || tok == ID) {
-                ast_free(val.node);
+                free(val.name);
             }
         } while (tok != 0);
         puts("-- done dumping tokens --");
@@ -57,7 +57,7 @@ char *compile_input(char *program_source, size_t len, int options) {
     // not much else guaranteed about the program beyond its syntactic
     // validity.
     if (yyparse(&program, lexer) != 0) {
-        ast_free(program);
+        free_program(program);
         yy_delete_buffer(inp, lexer);
         yylex_destroy(lexer);
         return "";
@@ -67,13 +67,13 @@ char *compile_input(char *program_source, size_t len, int options) {
     yylex_destroy(lexer);
 
     if (options & DUMP_AST) {
-        ast_print(program, 0);
+        print_program(program, 0);
         puts("-- done dumping ast --");
     }
 
 
     if (options & NO_ANALYSIS) {
-        ast_free(program);
+        free_program(program);
         return "";
     }
 

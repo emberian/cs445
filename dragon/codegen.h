@@ -3,6 +3,6 @@
 #include "anal.h"
 #include "ast.h"
 
-char *codegen(ast_node *, analysis *);
+char *codegen(struct ast_program *, analysis *);
 
 #endif

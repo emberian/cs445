@@ -1,5 +1,5 @@
 #include "codegen.h"
 
-char *codegen(ast_node *prog, analysis *anal) {
+char *codegen(struct ast_program *prog, analysis *anal) {
     return "done";
 }

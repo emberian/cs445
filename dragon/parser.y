@@ -1,13 +1,17 @@
 %{
 #define YYERROR_VERBOSE
 #include "ast.h"
-#include "symbol.h"
 #include "util.h"
 #include "lexer.h"
+#define CB (void (*)(void*))
 
-extern int yyerror(YYLTYPE *, struct ast_node **, void *scanner, const char *s);
+extern int yyerror(YYLTYPE *, struct ast_program **, void *scanner, const char *s);
 
 %}
+
+%code requires {
+struct ast_program;
+}
 
 %expect 0
 
@@ -23,6 +27,7 @@ extern int yyerror(YYLTYPE *, struct ast_node **, void *scanner, const char *s);
 %token INTEGER
 %token REAL
 %token ARRAY
+%token CARET
 %token OF
 %token PROGRAM
 %token EQ
@@ -57,48 +62,59 @@ extern int yyerror(YYLTYPE *, struct ast_node **, void *scanner, const char *s);
 %token TO
 
 %union {
-    struct astlist *nlist;
-    enum yytokentype token_type;
-    struct ast_node *node;
+    struct list *nlist;
+    struct ast_type *type;
+    struct ast_stmt *stmt;
+    struct ast_subdecl *subdecl;
+    struct ast_subhead *head;
+    struct ast_expr *expr;
+    struct ast_path *path;
+    enum yytokentype tok;
+    char *name;
 }
 
+%destructor { free_expr($$); } <expr>
+%destructor { free_subprogram_head($$); } <head>
+%destructor { free($$); } <name>
+%destructor { free_path($$); } <path>
+%destructor { free_stmt($$); } <stmt>
+%destructor { free_subprogram_decl($$); } <subdecl>
+%destructor { free_type($$); } <type>
+%destructor { list_free($$); } <nlist>
 
+%type <expr> expression
+%type <expr> factor
+%type <expr> lvalue
+%type <expr> simple_expression
+%type <expr> term
+%type <head> subprogram_head
+%type <name> id
+%type <name> num
 %type <nlist> arguments
 %type <nlist> declarations
 %type <nlist> expression_list
 %type <nlist> identifier_list
-%type <nlist> optional_statements
+%type <nlist> optional_identifier_list
 %type <nlist> parameter_list
 %type <nlist> statement_list
 %type <nlist> subprogram_declarations
-%type <nlist> compound_statement
-%type <nlist> optional_identifier_list
-%type <node> expression
-%type <node> factor
-%type <node> id
-%type <node> num
-%type <node> procedure_statement
-%type <node> program
-%type <node> simple_expression
-%type <node> standard_type
-%type <node> statement
-%type <node> subprogram_declaration
-%type <node> subprogram_head
-%type <node> term
-%type <node> type
-%type <node> variable
-%type <token_type> addop
-%type <token_type> mulop
-%type <token_type> relop
-%type <token_type> sign
+%type <path> path
+%type <stmt> compound_statement
+%type <stmt> optional_statements
+%type <stmt> procedure_statement
+%type <stmt> statement
+%type <subdecl> subprogram_declaration
+%type <tok> addop
+%type <tok> mulop
+%type <tok> relop
+%type <tok> sign
+%type <type> standard_type
+%type <type> type
 
 %pure-parser
 %lex-param {void * scanner}
-%parse-param {struct ast_node **res}
+%parse-param {struct ast_program **res}
 %parse-param {void * scanner}
-
-%destructor { list_free($$); } <nlist>
-%destructor { ast_free($$); } <node>
 
 %locations
 
@@ -111,252 +127,136 @@ program : PROGRAM id LPAREN optional_identifier_list RPAREN SEMI
         subprogram_declarations
         compound_statement
         DOT
-        {
-        *res = M(struct ast_node);
-        (*res)->type = AST_PROGRAM;
-        (*res)->prog_name = $2;
-        (*res)->prog_args = $4;
-        (*res)->prog_decls = $7;
-        (*res)->prog_subprogs = $8;
-        (*res)->prog_stmts = $9;
-        }
-        ;
+        { *res = ast_program($2, $4, $7, $8, $9); } ;
 
 optional_identifier_list : identifier_list
-                         | { $$ = list_empty(); }
+                         | { $$ = list_empty(free); }
                          ;
 
-identifier_list : id { $$ = list_new($1); }
-                | identifier_list COMMA id
-                {
-                $$ = $1;
-                list_add($$, $3);
-                }
+identifier_list : id                       { $$ = list_new($1, free); }
+                | identifier_list COMMA id { $$ = $1; list_add($$, $3); }
                 ;
 
-declarations : declarations VAR identifier_list COLON type SEMI
-             {
-             $$ = $1;
-             ast_node *t = ast_decls($3, $5);
-             list_add($$, t);
-             }
-             | { $$ = list_empty(); }
+declarations : declarations VAR identifier_list COLON type SEMI { $$ = $1; list_add($$, ast_decls($3, $5)); }
+             | /* empty */                                      { $$ = list_empty(CB free_decls); }
              ;
 
 type : standard_type
-     | ARRAY LBRACKET num DOTDOT num RBRACKET OF standard_type
-     {
-     $$ = ast_new_empty(AST_TYPE_ARRAY);
-     $$->ty_num1 = $3;
-     $$->ty_num2 = $5;
-     $$->ty_type = $8;
-     }
+     | ARRAY LBRACKET num DOTDOT num RBRACKET OF standard_type { $$ = ast_type(TYPE_ARRAY, $3, $5, $8); }
      ;
 
-standard_type : INTEGER { $$ = ast_new_empty(AST_TYPE_INTEGER); }
-              | REAL { $$ = ast_new_empty(AST_TYPE_REAL); }
+standard_type : INTEGER { $$ = ast_type(TYPE_INTEGER); }
+              | REAL    { $$ = ast_type(TYPE_REAL); }
               ;
 
-subprogram_declarations : subprogram_declarations subprogram_declaration SEMI
-                        {
-                        $$ = $1;
-                        list_add($$, $2);
-                        }
-                        | { $$ = list_empty(); }
+subprogram_declarations : subprogram_declarations subprogram_declaration SEMI { $$ = $1; list_add($$, $2); }
+                        |                                                     { $$ = list_empty(CB free_subprogram_decl); }
                         ;
 
 subprogram_declaration : subprogram_head subprogram_declarations declarations compound_statement
                        {
-                       $$ = ast_subprogram_decl_new($1, $2, $3, $4);
+                       $$ = ast_subprogram_decl($1, $2, $3, $4);
                        }
                        ;
 
 subprogram_head : FUNCTION id arguments COLON standard_type SEMI
                 {
-                $$ = ast_subprogram_head_new(ast_new_empty(AST_FUNCTION), $2, $3, $5);
+                $$ = ast_subprogram_head(SUB_FUNCTION, $2, $3, $5);
                 }
                 | PROCEDURE id arguments
                 {
-                $$ = ast_subprogram_head_new(ast_new_empty(AST_PROCEDURE), $2, $3, NULL);
+                $$ = ast_subprogram_head(SUB_PROCEDURE, $2, $3, NULL);
                 }
                 ;
 
 arguments : LPAREN parameter_list RPAREN { $$ = $2; }
-          | { $$ = list_empty(); }
+          | /* empty */                  { $$ = list_empty(free); }
           ;
 
-parameter_list : identifier_list COLON type
-               {
-               ast_node *t = ast_decls($1, $3);
-               $$ = list_new(t);
-               }
-               | parameter_list SEMI identifier_list COLON type
-               {
-               $$ = $1;
-               ast_node *t = ast_decls($3, $5);
-               list_add($$, t);
-               }
+parameter_list : identifier_list COLON type                     { $$ = list_new(ast_decls($1, $3), CB free_decls); }
+               | parameter_list SEMI identifier_list COLON type { $$ = $1; list_add($$, ast_decls($3, $5)); }
                ;
 
 compound_statement : TBEGIN optional_statements END { $$ = $2; }
                    ;
 
-optional_statements : statement_list
-                    {
-                    $$ = $1;
-                    }
-                    | { $$ = list_empty(); }
+optional_statements : statement_list { $$ = ast_stmt(STMT_STMTS, $1); }
+                    | { $$ = NULL; }
                     ;
 
-statement_list : statement { $$ = list_new($1); }
-               | statement_list SEMI statement
-               {
-               $$ = $1;
-               list_add($$, $3);
-               }
+statement_list : statement                     { $$ = list_new($1, CB free_stmt); }
+               | statement_list SEMI statement { $$ = $1; list_add($$, $3); }
                ;
 
-statement : variable ASSIGNOP expression
-          {
-          $$ = ast_new_empty(AST_STMT_ASSIGN);
-          $$->ass_lvalue = $1;
-          $$->ass_rvalue = $3;
-          }
-          | procedure_statement { $$ = $1; }
-          | compound_statement
-          {
-          $$ = ast_new_empty(AST_STMT_LIST);
-          $$->stmts = $1;
-          }
-          | IF expression THEN statement ELSE statement
-          {
-          $$ = ast_new_empty(AST_STMT_IF_ELSE);
-          $$->if_cond = $2;
-          $$->if_if = $4;
-          $$->if_else = $6;
-          }
-          | WHILE expression DO statement
-          {
-          $$ = ast_new_empty(AST_STMT_WHILE_DO);
-          $$->wdo_expr = $2;
-          $$->wdo_stmt = $4;
-          }
-          | FOR id ASSIGNOP expression TO expression DO statement SEMI
-          {
-          $$ = ast_new_empty(AST_STMT_FOR);
-          $$->for_name = $2;
-          $$->for_start = $4;
-          $$->for_end = $6;
-          $$->for_body = $8;
-          }
+statement : lvalue ASSIGNOP expression                                 { $$ = ast_stmt(STMT_ASSIGN, $1, $3);      }
+          | procedure_statement
+          | compound_statement                                         { $$ = ast_stmt(STMT_STMTS, $1);           }
+          | IF expression THEN statement ELSE statement                { $$ = ast_stmt(STMT_ITE, $2, $4, $6);     }
+          | WHILE expression DO statement                              { $$ = ast_stmt(STMT_WDO, $2, $4);         }
+          | FOR id ASSIGNOP expression TO expression DO statement SEMI { $$ = ast_stmt(STMT_FOR, $2, $4, $6, $8); }
           ;
 
-variable : id { $$ = ast_variable_new($1, NULL); }
-         | id LBRACKET expression RBRACKET
-         { $$ = ast_variable_new($1, $3); }
+path : path '.' id { $$ = $1; ast_path_append($$, $3); }
+     | id          { $$ = ast_path($1);                }
+     ;
+
+lvalue :   path                              { $$ = ast_expr(EXPR_PATH,  $1    ); }
+         | path LBRACKET expression RBRACKET { $$ = ast_expr(EXPR_IDX,   $1, $3); }
+         | path CARET                        { $$ = ast_expr(EXPR_DEREF, $1    ); }
          ;
 
-procedure_statement : id
-                    {
-                    $$ = ast_new_empty(AST_STMT_PROCEDURE_STMT);
-                    $$->procs_name = $1;
-                    $$->procs_args = NULL;
-                    }
-                    | id LPAREN expression_list RPAREN
-                    {
-                    $$ = ast_new_empty(AST_STMT_PROCEDURE_STMT);
-                    $$->procs_name = $1;
-                    $$->procs_args = $3;
-                    }
+procedure_statement : path                               { $$ = ast_stmt(STMT_PROC, $1, NULL); }
+                    | path LPAREN expression_list RPAREN { $$ = ast_stmt(STMT_PROC, $1, $3);   }
                     ;
 
-expression_list : expression { $$ = list_new($1); }
-                | expression_list COMMA expression
-                {
-                $$ = $1;
-                list_add($$, $3);
-                }
+expression_list : expression                       { $$ =     list_new($1, CB free_expr);     }
+                | expression_list COMMA expression { $$ = $1; list_add($$, $3); }
                 ;
 
 expression : simple_expression
-           | simple_expression relop simple_expression
-           {
-           $$ = ast_new_empty(AST_EXPR_BINOP);
-           $$->bin_left = $1;
-           $$->bin_op = $2;
-           $$->bin_right = $3;
-           }
+           | simple_expression relop simple_expression { $$ = ast_expr(EXPR_BIN, $1, $2, $3); }
            ;
 
 simple_expression : term
-                  | sign term
-                  {
-                  $$ = ast_new_empty(AST_EXPR_UNARY);
-                  $$->un_sign = $1;
-                  $$->un_expr = $2;
-                  }
-                  | simple_expression addop term
-                  {
-                  $$ = ast_new_empty(AST_EXPR_BINOP);
-                  $$->bin_left = $1;
-                  $$->bin_op = $2;
-                  $$->bin_right = $3;
-                  }
+                  | sign term { $$ = ast_expr(EXPR_UN, $1, $2); }
+                  | simple_expression addop term { $$ = ast_expr(EXPR_BIN, $1, $2, $3); }
                   ;
 
 term : factor
-     | term mulop factor
-     {
-     $$ = ast_new_empty(AST_EXPR_BINOP);
-     $$->bin_left = $1;
-     $$->bin_op = $2;
-     $$->bin_right = $3;
-     }
+     | term mulop factor { $$ = ast_expr(EXPR_BIN, $1, $2, $3); }
      ;
 
-factor : id { $$ = $1; }
-       | id LPAREN expression_list RPAREN
-       {
-       $$ = ast_new_empty(AST_EXPR_APPLY);
-       $$->app_name = $1;
-       $$->app_args = $3;
-       }
-       | num { $$ = $1; }
-       | LPAREN expression RPAREN { $$ = $2; }
-       | NOT factor
-       {
-       $$ = ast_new_empty(AST_EXPR_UNARY);
-       $$->un_sign = NOT;
-       $$->un_expr = $2;
-       }
+factor : path LPAREN expression_list RPAREN { $$ = ast_expr(EXPR_APP, $1, $3); }
+       | num                              { $$ = ast_expr(EXPR_LIT, $1);     }
+       | LPAREN expression RPAREN         { $$ = $2;                         }
+       | NOT factor                       { $$ = ast_expr(EXPR_UN, NOT, $2); }
+       | lvalue
        ;
 
-sign : PLUS { $$ = PLUS; }
+sign : PLUS  { $$ = PLUS; }
      | MINUS { $$ = MINUS; }
      ;
 
-relop : EQ { $$ = EQ; }
+relop : EQ  { $$ = EQ; }
       | NEQ { $$ = NEQ; }
-      | LT { $$ = LT; }
-      | GT { $$ = GT; }
-      | LE { $$ = LE; }
-      | GE { $$ = GE; }
+      | LT  { $$ = LT; }
+      | GT  { $$ = GT; }
+      | LE  { $$ = LE; }
+      | GE  { $$ = GE; }
       ;
 
-addop : PLUS { $$ = PLUS; }
+addop : PLUS  { $$ = PLUS; }
       | MINUS { $$ = MINUS; }
-      | OR { $$ = OR; }
+      | OR    { $$ = OR; }
       ;
 
-mulop : STAR { $$ = STAR; }
+mulop : STAR  { $$ = STAR; }
       | SLASH { $$ = SLASH; }
-      | DIV { $$ = DIV; }
-      | MOD { $$ = MOD; }
-      | AND { $$ = AND; }
+      | DIV   { $$ = DIV; }
+      | MOD   { $$ = MOD; }
+      | AND   { $$ = AND; }
       ;
 
-id : ID { $$ = yylval.node; }
-   ;
+id : ID   { $$ = yylval.name; } ;
 
-num : NUM { $$ = yylval.node; }
-    ;
+num : NUM { $$ = yylval.name; } ;

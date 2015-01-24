@@ -1,5 +1,5 @@
-#include "parser.tab.h"
 #include "ast.h"
+#include "parser.tab.h"
 #include <stdio.h>
 
 void print_token(int tok, YYSTYPE *val) {
@@ -110,10 +110,10 @@ void print_token(int tok, YYSTYPE *val) {
             puts("SEMI");
             break;
         case ID:
-            printf("ID(%s)\n", val->node->id_name);
+            printf("ID(%s)\n", val->name);
             break;
         case NUM:
-            printf("NUM(%s)\n", val->node->lit_val->id_name);
+            printf("NUM(%s)\n", val->name);
             break;
         case DO:
             puts("DO");

@@ -1,8 +1,8 @@
 %{
 #include <stdio.h>
+#include <string.h>
 #include "parser.tab.h"
 #include "ast.h"
-#include "symbol.h"
 
 /* http://stackoverflow.com/a/22125500
    You wouldn't think this would be so annoying! */
@@ -86,20 +86,21 @@ static void update_loc(YYLTYPE *yylloc, char *yytxt){
 ";"  { return SEMI; }
 
 [a-zA-Z_][a-zA-Z0-9_]* {
-    yylval->node = intern(yytext);
+#define _POSIX_SOURCE 200809L
+#include <string.h>
+    yylval->name = strndup(yytext, yyleng-1);
     return ID;
 }
 
 [0-9]+(\.[0-9]+)?([eE](\+|\-)?[0-9]+)? {
-    yylval->node = M(ast_node);
-    yylval->node->type = AST_EXPR_LIT;
-    yylval->node->lit_val = intern(yytext);
+#include <string.h>
+    yylval->name = strndup(yytext, yyleng-1);
     return NUM;
 }
 
 %%
 
-int yyerror(YYLTYPE *loc, struct ast_node **an, void *scanner, const char *s) {
+int yyerror(YYLTYPE *loc, struct ast_program **p, void *scanner, const char *s) {
     printf("parse error at line %d: %s\n", loc->first_line, s);
     return 0;
 }

@@ -6,339 +6,432 @@
 // number of spaces per indentation level
 #define INDSZ 2
 
-ast_node *ast_subprogram_head_new(ast_node *t, ast_node *name, list *args, ast_node *retty) {
-    ast_node *n = M(ast_node);
-    n->type = AST_SUBPROGRAM_HEAD;
-    n->head_type = t;
-    n->head_name = name;
-    n->head_args = args;
-    n->head_ret_ty = retty;
-    return n;
-}
-
-ast_node *ast_subprogram_decl_new(ast_node *head, list *subprogs, list *decls, list *body) {
-    ast_node *n = M(ast_node);
-    n->type = AST_SUBPROGRAM_DECL;
-    n->sub_decl_head = head;
-    n->sub_decl_decls = decls;
-    n->sub_decl_body = body;
-    n->sub_decl_subprogs = subprogs;
-    return n;
-}
-
-ast_node *ast_new_empty(ast_node_type type) {
-    ast_node *n = M(ast_node);
-    n->type = type;
-    return n;
-}
-
-ast_node *ast_variable_new(ast_node *name, ast_node *expr) {
-    ast_node *n = M(ast_node);
-    n->type = AST_VARIABLE;
-    n->var_name = name;
-    n->var_expr = expr;
-    return n;
-}
-
-ast_node *ast_decls(list *names, ast_node *type) {
-    ast_node *n = M(ast_node);
-    n->type = AST_DECL;
-    n->decl_names = names;
-    n->decl_type = type;
-    return n;
-}
-
-static void ast_print_type(ast_node *node) {
-    switch (node->type) {
-        case AST_TYPE_INTEGER:
-            printf("INTEGER");
-            break;
-        case AST_TYPE_REAL:
-            printf("REAL");
-            break;
-        case AST_TYPE_ARRAY:
-            printf("ARRAY [`%s` .. `%s`] OF ", node->ty_num1->lit_val->id_name,
-                    node->ty_num2->lit_val->id_name);
-            ast_print_type(node->ty_type);
-            break;
-        default:
-            printf("\nunknown type...\n");
-            break;
-    }
-}
-
-#define FOREACH(name, lname, exprs...) LFOREACH(ast_node*, name, lname, exprs)
 #define INDENT do { for (int i = 0; i < indent; i++) putchar(' '); } while(0)
-void ast_print(ast_node *node, int indent) {
-    char *kind; // I hate not being able to declare in case arms...
-    switch (node->type) {
-        case AST_EXPR_APPLY:
-            INDENT;
-            printf("APPLY `%s` TO ARGS:\n", node->app_name->id_name);
-            FOREACH(arg, node->app_args, ast_print(arg, indent+INDSZ));
+
+/* pretty printers */
+
+void print_expr(struct ast_expr *e, int indent) {
+    INDENT;
+    switch (e->tag) {
+        case EXPR_APP:
+            puts("APPLY:");
+            print_path(e->apply.name, indent+INDSZ);
+            INDENT; puts("TO ARGS:");
+            LFOREACH(struct ast_expr *, arg, e->apply.args, print_expr(arg, indent+INDSZ));
             break;
 
-        case AST_EXPR_BINOP:
-
-            INDENT;
+        case EXPR_BIN:
             printf("BINOP ");
-            print_token(node->bin_op, NULL);
+            print_token(e->binary.op, NULL);
             indent += INDSZ;
             INDENT;
             printf("LEFT:\n");
-            ast_print(node->bin_left, indent+INDSZ);
+            print_expr(e->binary.left, indent+INDSZ);
             INDENT;
             printf("RIGHT:\n");
-            ast_print(node->bin_right, indent+INDSZ);
+            print_expr(e->binary.right, indent+INDSZ);
             indent -= INDSZ;
             break;
 
-        case AST_EXPR_LIT:
-            INDENT;
-            printf("LIT `%s`\n", node->lit_val->id_name);
+        case EXPR_DEREF:
+            puts("DEREF:");
+            print_expr(e->deref.expr, indent+INDSZ);
             break;
 
-        case AST_EXPR_UNARY:
-            INDENT;
+        case EXPR_IDX:
+            printf("INDEX `");
+            print_path(e->idx.path, 0);
+            puts("` WITH:");
+            print_expr(e->idx.expr, indent+INDSZ);
+            break;
+
+        case EXPR_LIT:
+            printf("LIT `%s`\n", e->lit);
+            break;
+
+        case EXPR_PATH:
+            print_path(e->path, 0);
+            break;
+
+        case EXPR_UN:
             printf("UNARY ");
-            print_token(node->un_sign, NULL);
-            ast_print(node->un_expr, indent+INDSZ);
-            break;
-
-        case AST_FUNCTION:
-            fprintf(stderr, "error: AST_FUNCTION appeared in ast_print...\n");
-            abort();
-            break;
-
-        case AST_NAME:
-            INDENT;
-            printf("`%s`\n", node->id_name);
-            break;
-
-        case AST_PROCEDURE:
-            fprintf(stderr, "error: AST_PROCEDURE appeared in ast_print...\n");
-            abort();
-            break;
-
-        case AST_PROGRAM:
-            INDENT;
-            printf("PROGRAM `%s` WITH ARGS:\n", node->prog_name->id_name);
-            FOREACH(arg, node->prog_args, ast_print(arg, indent+INDSZ));
-
-            INDENT; puts("AND VARIABLES:");
-            FOREACH(var, node->prog_decls, ast_print(var, indent+INDSZ));
-
-            INDENT; puts("AND SUBPROGRAMS:");
-            FOREACH(sub, node->prog_subprogs, ast_print(sub, indent+INDSZ));
-
-            INDENT; puts("DOES:");
-            FOREACH(stmt, node->prog_stmts, ast_print(stmt, indent+INDSZ));
-
-            break;
-
-        case AST_STMT_ASSIGN:
-            INDENT; puts("ASSIGN");
-            ast_print(node->ass_lvalue, indent+INDSZ);
-
-            INDENT; puts("TO");
-            ast_print(node->ass_rvalue, indent+INDSZ);
-
-            break;
-
-        case AST_STMT_IF_ELSE:
-            INDENT; puts("IF FOLLOWING IS TRUE:");
-            ast_print(node->if_cond, indent+INDSZ);
-
-            INDENT; puts("THEN:");
-            ast_print(node->if_if, indent+INDSZ);
-
-            INDENT; puts("OTHERWISE:");
-            ast_print(node->if_else, indent+INDSZ);
-
-            break;
-
-        case AST_STMT_LIST:
-            FOREACH(stmt, node->stmts, ast_print(stmt, indent));
-            break;
-
-        case AST_STMT_PROCEDURE_STMT:
-            INDENT;
-            if (!node->procs_args) {
-                printf("APPLY `%s`\n", node->procs_name->id_name);
-            } else {
-                printf("APPLY `%s` WITH:\n", node->procs_name->id_name);
-                FOREACH(arg, node->procs_args, ast_print(arg, indent+INDSZ));
-            }
-            break;
-
-        case AST_STMT_WHILE_DO:
-            INDENT; puts("WHILE THE FOLLOWING IS TRUE:");
-            ast_print(node->wdo_expr, indent+INDSZ);
-
-            INDENT; puts("DO:");
-            ast_print(node->wdo_stmt, indent+INDSZ);
-
-            break;
-
-        case AST_SUBPROGRAM_DECL:
-            ast_print(node->sub_decl_head, indent);
-
-            INDENT; puts("WITH SUBPROGRAMS:");
-            FOREACH(sub, node->sub_decl_subprogs, ast_print(sub, indent+INDSZ));
-
-            INDENT; puts("AND VARIABLES");
-            FOREACH(decl, node->sub_decl_decls, ast_print(decl, indent+INDSZ));
-
-            INDENT; puts("DOES:");
-            FOREACH(stmt, node->sub_decl_body, ast_print(stmt, indent+INDSZ));
-
-            break;
-
-        case AST_SUBPROGRAM_HEAD:
-            kind = node->head_type->type == AST_FUNCTION ?
-                "FUNCTION" : "PROCEDURE";
-            INDENT;
-            printf("%s `%s` WITH ARGS:\n", kind, node->head_name->id_name);
-            FOREACH(arg, node->head_args, ast_print(arg, indent+INDSZ));
-            INDENT;
-            printf("RETURNING ");
-            ast_print_type(node->head_ret_ty);
-            puts("");
-            break;
-
-        case AST_TYPE_ARRAY:
-        case AST_TYPE_INTEGER:
-        case AST_TYPE_REAL:
-            INDENT;
-            ast_print_type(node);
-            puts("");
-            break;
-
-        case AST_VARIABLE:
-            INDENT;
-            if (!node->var_expr) {
-                printf("VARIABLE `%s`\n", node->var_name->id_name);
-            } else {
-                printf("VARIABLE `%s` INDEXED BY:\n", node->var_name->id_name);
-                ast_print(node->var_expr, indent+INDSZ);
-            }
-            break;
-
-        case AST_DECL:
-            INDENT;
-            printf("DECLARATIONS WITH TYPE ");
-            ast_print_type(node->decl_type);
+            print_token(e->unary.op, NULL);
             puts(":");
-            FOREACH(dec, node->decl_names, ast_print(dec, indent+INDSZ));
-            break;
-
-        case AST_STMT_FOR:
-            INDENT;
-            printf("FOR `%s` STARTING AT:\n", node->for_name->id_name);
-            ast_print(node->for_start, indent+INDSZ);
-            INDENT; puts("AND GOING TO:");
-            ast_print(node->for_end, indent+INDSZ);
-            INDENT; puts("DO:");
-            ast_print(node->for_body, indent+INDSZ);
+            print_expr(e->unary.expr, indent+INDSZ);
             break;
 
         default:
-            INDENT;
-            printf("unrecognized ast node %d...\n", node->type);
-            break;
+            fprintf(stderr, "unrecognized expr node...\n");
+            abort();
     }
 }
 
-void ast_free(ast_node *node) {
-    if (!node) return;
+void print_stmt(struct ast_stmt *s, int indent) {
+    switch (s->tag) {
+        case STMT_ASSIGN:
+            INDENT; puts("ASSIGN");
+            print_expr(s->assign.lvalue, indent+INDSZ);
 
-    switch (node->type) {
-        case AST_EXPR_APPLY:
-            list_free(node->app_args);
-            ast_free(node->app_name);
+            INDENT; puts("TO");
+            print_expr(s->assign.rvalue, indent+INDSZ);
             break;
-        case AST_EXPR_BINOP:
-            ast_free(node->bin_left);
-            ast_free(node->bin_right);
+
+        case STMT_ITE:
+            INDENT; puts("IF FOLLOWING IS TRUE:");
+            print_expr(s->ite.cond, indent+INDSZ);
+
+            INDENT; puts("THEN:");
+            print_stmt(s->ite.then, indent+INDSZ);
+
+            INDENT; puts("OTHERWISE:");
+            print_stmt(s->ite.elze, indent+INDSZ);
             break;
-        case AST_EXPR_LIT:
-            ast_free(node->lit_val);
+
+        case STMT_STMTS:
+            LFOREACH(struct ast_stmt *, stmt, s->stmts, print_stmt(stmt, indent));
             break;
-        case AST_EXPR_UNARY:
-            ast_free(node->un_expr);
+
+        case STMT_PROC:
+            INDENT;
+            printf("APPLY:\n");
+            print_path(s->apply.name, indent+INDSZ);
+            if (s->apply.args) {
+                INDENT; puts("WITH:");
+                LFOREACH(struct ast_expr *, arg, s->apply.args, print_expr(arg, indent+INDSZ));
+            }
             break;
-        case AST_FUNCTION:
+
+        case STMT_WDO:
+            INDENT; puts("WHILE THE FOLLOWING IS TRUE:");
+            print_expr(s->wdo.cond, indent+INDSZ);
+
+            INDENT; puts("DO:");
+            print_stmt(s->wdo.body, indent+INDSZ);
+
             break;
-        case AST_NAME:
-            free(node->id_name);
+
+        case STMT_FOR:
+            INDENT;
+            printf("FOR `%s` STARTING AT:\n", s->foor.id);
+            print_expr(s->foor.start, indent+INDSZ);
+            INDENT; puts("AND GOING TO:");
+            print_expr(s->foor.end, indent+INDSZ);
+            INDENT; puts("DO:");
+            print_stmt(s->foor.body, indent+INDSZ);
             break;
-        case AST_PROCEDURE:
-            break;
-        case AST_PROGRAM:
-            ast_free(node->prog_name);
-            list_free(node->prog_args);
-            list_free(node->prog_decls);
-            list_free(node->prog_subprogs);
-            list_free(node->prog_stmts);
-            break;
-        case AST_STMT_ASSIGN:
-            ast_free(node->ass_lvalue);
-            ast_free(node->ass_rvalue);
-            break;
-        case AST_STMT_IF_ELSE:
-            ast_free(node->if_if);
-            ast_free(node->if_else);
-            ast_free(node->if_cond);
-            break;
-        case AST_STMT_LIST:
-            list_free(node->stmts);
-            break;
-        case AST_STMT_PROCEDURE_STMT:
-            ast_free(node->procs_name);
-            list_free(node->procs_args);
-            break;
-        case AST_STMT_WHILE_DO:
-            ast_free(node->wdo_expr);
-            ast_free(node->wdo_stmt);
-            break;
-        case AST_SUBPROGRAM_DECL:
-            ast_free(node->sub_decl_head);
-            list_free(node->sub_decl_decls);
-            list_free(node->sub_decl_body);
-            list_free(node->sub_decl_subprogs);
-            break;
-        case AST_SUBPROGRAM_HEAD:
-            ast_free(node->head_type);
-            ast_free(node->head_name);
-            ast_free(node->head_ret_ty);
-            list_free(node->head_args);
-            break;
-        case AST_TYPE_ARRAY:
-            ast_free(node->ty_type);
-            ast_free(node->ty_num1);
-            ast_free(node->ty_num2);
-            break;
-        case AST_TYPE_INTEGER:
-        case AST_TYPE_REAL:
-            break;
-        case AST_VARIABLE:
-            ast_free(node->var_name);
-            ast_free(node->var_expr);
-            break;
-        case AST_DECL:
-            ast_free(node->decl_type);
-            list_free(node->decl_names);
-            break;
-        case AST_STMT_FOR:
-            ast_free(node->for_name);
-            ast_free(node->for_start);
-            ast_free(node->for_end);
-            ast_free(node->for_body);
-            break;
+
         default:
-            printf("unrecognized free of ast node %d...\n", node->type);
+            fprintf(stderr, "unrecognized stmt node...\n");
+            abort();
+    }
+}
+
+void print_type(struct ast_type *t, int indent) {
+    INDENT;
+    switch (t->tag) {
+        case TYPE_INTEGER:
+            puts("INTEGER");
             break;
+
+        case TYPE_REAL:
+            puts("REAL");
+            break;
+
+        case TYPE_ARRAY:
+            printf("ARRAY [`%s` .. `%s`] OF:\n", t->array.lower, t->array.upper);
+            print_type(t->array.elts, indent+INDSZ);
+            break;
+
+        case TYPE_POINTER:
+            puts("POINTER TO:");
+            print_type(t->pointer, indent+INDSZ);
+            break;
+
+        case TYPE_FUNCTION:
+            puts("<function types not supported>");
+            break;
+
+        case TYPE_RECORD:
+            puts("<record types not supported>");
+            break;
+
+        default:
+            fprintf(stderr, "unrecognized type node...\n");
+            abort();
+    }
+}
+
+void print_decls(struct ast_decls *d, int indent) {
+    INDENT; puts("DECLARATION WITH TYPE");
+    print_type(d->type, indent+INDSZ);
+    INDENT; puts("OF NAMES:");
+    LFOREACH(char *, name, d->names, INDENT; printf("`%s`\n", name););
+}
+
+void print_subprogram_head(struct ast_subhead *h, int indent) {
+    char *kind = h->type == SUB_FUNCTION ?
+        "FUNCTION" : "PROCEDURE";
+    INDENT;
+    printf("%s `%s` WITH ARGS:\n", kind, h->name);
+    LFOREACH(char *, arg, h->args, INDENT; printf("`%s`\n", arg));
+    INDENT;
+    printf("RETURNING:");
+    print_type(h->retty, indent+INDSZ);
+    puts("");
+}
+
+void print_subprogram_decl(struct ast_subdecl *d, int indent) {
+    print_subprogram_head(d->head, indent);
+
+    INDENT; puts("WITH SUBPROGRAMS:");
+    LFOREACH(struct ast_subdecl *, sub, d->subprogs, print_subprogram_decl(sub, indent+INDSZ));
+
+    INDENT; puts("AND VARIABLES");
+    LFOREACH(struct ast_decls *, decl, d->decls, print_decls(decl, indent+INDSZ));
+
+    INDENT; puts("DOES:");
+    print_stmt(d->body, indent+INDSZ);
+}
+
+void print_path(struct ast_path *p, int indent) {
+    INDENT;
+    for (struct node *temp = &p->components->inner; temp; temp = temp->next) {
+        printf("%s", temp->elt);
+        if (temp->next) {
+            putchar('.');
+        }
+    }
+    puts("");
+}
+
+void print_program(struct ast_program *p, int indent) {
+    INDENT;
+
+    printf("PROGRAM `%s` WITH ARGS:\n", p->name);
+    LFOREACH(char *, arg, p->args, INDENT; printf("`%s`\n", arg));
+
+    INDENT; puts("AND VARIABLES:");
+    LFOREACH(struct ast_decls *, var, p->decls, print_decls(var, indent+INDSZ));
+
+    INDENT; puts("AND SUBPROGRAMS:");
+    LFOREACH(struct ast_subdecl *, sub, p->subprogs, print_subprogram_decl(sub, indent+INDSZ));
+
+    INDENT; puts("DOES:");
+    print_stmt(p->body, indent+INDSZ);
+}
+
+#undef INDENT
+
+/* destructors */
+
+void free_expr(struct ast_expr *e) {
+    switch (e->tag) {
+        case EXPR_APP:
+            LFOREACH(struct ast_expr *, arg, e->apply.args, free_expr(arg));
+            free_path(e->apply.name);
+            break;
+
+        case EXPR_BIN:
+            free_expr(e->binary.left);
+            free_expr(e->binary.right);
+            break;
+
+        case EXPR_DEREF:
+            free_expr(e->deref.expr);
+            break;
+
+        case EXPR_IDX:
+            free_path(e->idx.path);
+            free_expr(e->idx.expr);
+            break;
+
+        case EXPR_LIT:
+            free(e->lit);
+            break;
+
+        case EXPR_PATH:
+            free_path(e->path);
+            break;
+
+        case EXPR_UN:
+            free_expr(e->unary.expr);
+            break;
+
+        default:
+            fprintf(stderr, "unrecognized expr node...\n");
+            abort();
     }
 
-    free(node);
+    free(e);
+}
+
+void free_stmt(struct ast_stmt *s) {
+    switch (s->tag) {
+        case STMT_ASSIGN:
+            free_expr(s->assign.lvalue);
+            free_expr(s->assign.rvalue);
+            break;
+
+        case STMT_ITE:
+            free_expr(s->ite.cond);
+            free_stmt(s->ite.then);
+            free_stmt(s->ite.elze);
+            break;
+
+        case STMT_STMTS:
+            LFOREACH(struct ast_stmt *, stmt, s->stmts, free_stmt(stmt));
+            break;
+
+        case STMT_PROC:
+            free_path(s->apply.name);
+            if (s->apply.args) {
+                LFOREACH(struct ast_expr *, arg, s->apply.args, free_expr(arg));
+            }
+            break;
+
+        case STMT_WDO:
+            free_expr(s->wdo.cond);
+            free_stmt(s->wdo.body);
+            break;
+
+        case STMT_FOR:
+            free(s->foor.id);
+            free_expr(s->foor.start);
+            free_expr(s->foor.end);
+            free_stmt(s->foor.body);
+            break;
+
+        default:
+            fprintf(stderr, "unrecognized stmt node...\n");
+            abort();
+    }
+    free(s);
+}
+
+void free_type(struct ast_type *t) {
+    switch (t->tag) {
+        case TYPE_INTEGER:
+            break;
+
+        case TYPE_REAL:
+            break;
+
+        case TYPE_ARRAY:
+            free(t->array.lower);
+            free(t->array.upper);
+            free_type(t->array.elts);
+            break;
+
+        case TYPE_POINTER:
+            free_type(t->pointer);
+            break;
+
+        case TYPE_FUNCTION:
+            break;
+
+        case TYPE_RECORD:
+            break;
+
+        default:
+            fprintf(stderr, "unrecognized type node...\n");
+            abort();
+    }
+
+    free(t);
+}
+
+void free_decls(struct ast_decls *d) {
+    free_type(d->type);
+    LFOREACH(char *, name, d->names, free(name));
+    free(d);
+}
+
+void free_subprogram_head(struct ast_subhead *h) {
+    free(h->name);
+    LFOREACH(char *, arg, h->args, free(arg));
+    free_type(h->retty);
+    free(h);
+}
+
+void free_subprogram_decl(struct ast_subdecl *d) {
+    free_subprogram_head(d->head);
+
+    LFOREACH(struct ast_subdecl *, sub, d->subprogs, free_subprogram_decl(sub));
+    LFOREACH(struct ast_decls *, decl, d->decls, free_decls(decl));
+    free_stmt(d->body);
+    free(d);
+}
+
+void free_path(struct ast_path *p) {
+    LFOREACH(char *, comp, p->components, free(comp));
+    free(p);
+}
+
+void free_program(struct ast_program *p) {
+    free(p->name);
+    LFOREACH(char *, arg, p->args, free(arg));
+    LFOREACH(struct ast_decls *, var, p->decls, free_decls(var));
+    LFOREACH(struct ast_subdecl *, sub, p->subprogs, free_subprogram_decl(sub));
+    free_stmt(p->body);
+    free(p);
+}
+
+/* constructors */
+
+struct ast_expr *ast_expr (enum exprs tag, ...) {
+    return NULL;
+}
+
+struct ast_stmt *ast_stmt (enum stmts tag, ...) {
+    return NULL;
+}
+
+struct ast_type *ast_type (enum types tag, ...) {
+    return NULL;
+}
+
+struct ast_path *ast_path (char *comp) {
+    struct ast_path *p = M(struct ast_path);
+    p->components = list_new(comp, free);
+    return p;
+}
+
+void ast_path_append(struct ast_path *p, char *name) {
+    list_add(p->components, name);
+}
+
+struct ast_program *ast_program(char *name, struct list *args, struct list *decls,
+                                 struct list *subprogs, struct ast_stmt *body) {
+    struct ast_program *p = M(struct ast_program);
+    p->name = name;
+    p->args = args;
+    p->decls = decls;
+    p->subprogs = subprogs;
+    p->body = body;
+    return p;
+}
+
+struct ast_subhead *ast_subprogram_head(enum subprogs t, char *name, struct list *args, struct ast_type *retty) {
+    struct ast_subhead *n = M(struct ast_subhead);
+    n->type = t;
+    n->name = name;
+    n->args = args;
+    n->retty = retty;
+    return n;
+}
+
+struct ast_subdecl *ast_subprogram_decl(struct ast_subhead *head, struct list *decls, struct list *subprogs, struct ast_stmt *body) {
+    struct ast_subdecl *n = M(struct ast_subdecl);
+    n->head = head;
+    n->decls = decls;
+    n->subprogs = subprogs;
+    n->body = body;
+    return n;
+}
+
+struct ast_decls *ast_decls(struct list *names, struct ast_type *type) {
+    struct ast_decls *n = M(struct ast_decls);
+    n->names = names;
+    n->type = type;
+    return n;
 }
