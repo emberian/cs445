@@ -3,6 +3,7 @@
 # $1 - the source directory
 # $2 - the path to the compiler
 # $3 - the target to check
+# $4 - the path to test_util
 
 if [ $3 = "all" ]; then
     $0 $1 $2 lexer &&
@@ -12,6 +13,8 @@ if [ $3 = "all" ]; then
     echo "All tests passed"
     exit 0
 fi
+
+$4 || exit
 
 status=0
 tmp=$(mktemp -d)

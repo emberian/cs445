@@ -32,6 +32,7 @@ struct list *list_empty(void (*dtor)(void*)) {
     l->inner.next = NULL;
     l->inner.prev = NULL;
     l->inner.elt = NULL;
+    l->last = &l->inner;
     l->dtor = dtor;
     return l;
 }
@@ -44,16 +45,16 @@ void list_append(struct node *a, struct node *b) {
 }
 
 static void list_free_backward(struct node *a, void(*dtor)(void*)) {
-    struct node *p = a->prev;
     if (!a) return;
+    struct node *p = a->prev;
     if (a->elt) dtor(a->elt);
     free(a);
     list_free_backward(p, dtor);
 }
 
 static void list_free_forward(struct node *a, void(*dtor)(void*)) {
-    struct node *p = a->next;
     if (!a) return;
+    struct node *p = a->next;
     if (a->elt) dtor(a->elt);
     free(a);
     list_free_forward(p, dtor);
@@ -70,7 +71,10 @@ void list_free(struct list *a) {
 void list_add(struct list *a, void *elt) {
     struct node *new = M(struct node);
     new->elt = elt;
-    list_append(&a->inner, new);
+    new->prev = NULL;
+    new->next = NULL;
+    list_append(a->last, new);
+    a->last = new;
 }
 
 charvec *charvec_new() {
@@ -119,8 +123,8 @@ charvec *charvec_from_cstr(const char *str) {
     return res;
 }
 
-struct hash_table *hash_new(size_t num_buckets, int64_t (*hash)(void *), bool (*comp)(void *, void *),
-        void (*key_dtor)(void *), void (*val_dtor)(void *)) {
+struct hash_table *hash_new(size_t num_buckets, HASH_FUNC hash,
+        COMPARE_FUNC comp, FREE_FUNC key_dtor, FREE_FUNC val_dtor) {
     struct hash_table *ret = M(struct hash_table);
     ret->num_buckets = num_buckets;
     ret->hash = hash;
@@ -172,16 +176,18 @@ void hash_free(struct hash_table *tab) {
                 tab->val_dtor(ent->val););
         list_free(tab->buckets[i]);
     }
+    free(tab->buckets);
+    free(tab);
 }
 
-int64_t hashpjw(char *string) {
-    unsigned int h = 0, g;
-    for (char *p = string; *p != '\0'; p++) {
-        h = (h << 4) + (*p);
+uint64_t hashpjw(char *string, size_t size) {
+    uint64_t h = 0, g;
+    for (int i = 0; i < size; i++) {
+        h = (h << 4) + (*string++);
         if ((g = h & 0xf0000000)) {
             h ^= g >> 24;
             h ^= g;
         }
     }
-    return (int64_t) h % 211;
+    return h;
 }

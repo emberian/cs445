@@ -32,10 +32,13 @@ add_executable(dragon
     ${FLEX_lexer_OUTPUTS}
 )
 
+add_executable(test_util util.h util.c test_util.c)
+
 add_custom_target(check
     COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/check.sh
     ${CMAKE_CURRENT_SOURCE_DIR}
-    ${CMAKE_CURRENT_BINARY_DIR}/dragon all
+    ${CMAKE_CURRENT_BINARY_DIR}/dragon ${CMAKE_CURRENT_BINARY_DIR}/test_util all
     DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/dragon
+    DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/test_util
     COMMENT "Running tests"
 )

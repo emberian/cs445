@@ -24,6 +24,7 @@ struct node {
 
 struct list {
     struct node inner;
+    struct node *last;
     void (*dtor)(void*);
 };
 
@@ -47,20 +48,24 @@ void charvec_push_all(charvec *, const char *, size_t);
 charvec *charvec_new();
 charvec *charvec_from_cstr(const char *);
 
+typedef uint64_t (*HASH_FUNC)(void *);
+typedef bool (*COMPARE_FUNC)(void *, void *);
+typedef void (*FREE_FUNC)(void *);
+
 /* Super simple, crappy chained hash table. */
 struct hash_table {
     // number of buckets
     size_t num_buckets;
-    int64_t (*hash)(void *);
-    bool (*comp)(void *, void *);
-    void (*key_dtor)(void *);
-    void (*val_dtor)(void *);
+    HASH_FUNC hash;
+    COMPARE_FUNC comp;
+    FREE_FUNC key_dtor, val_dtor;
     struct list **buckets;
 };
 
-struct hash_table *hash_new(size_t, int64_t (*)(void *), bool (*)(void *, void *), void (*)(void *), void (*)(void *));
+struct hash_table *hash_new(size_t, HASH_FUNC, COMPARE_FUNC, FREE_FUNC, FREE_FUNC);
 void *hash_lookup(struct hash_table *, void *);
 void hash_insert(struct hash_table *, void *, void *);
 void hash_free(struct hash_table *);
+uint64_t hashpjw(char *, size_t);
 
 #endif
