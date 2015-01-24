@@ -184,8 +184,8 @@ uint64_t hashpjw(char *string, size_t size) {
     uint64_t h = 0, g;
     for (int i = 0; i < size; i++) {
         h = (h << 4) + (*string++);
-        if ((g = h & 0xf0000000)) {
-            h ^= g >> 24;
+        if ((g = h & 0xf000000000000000)) {
+            h ^= g >> 48;
             h ^= g;
         }
     }
