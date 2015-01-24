@@ -173,3 +173,15 @@ void hash_free(struct hash_table *tab) {
         list_free(tab->buckets[i]);
     }
 }
+
+int64_t hashpjw(char *string) {
+    unsigned int h = 0, g;
+    for (char *p = string; *p != '\0'; p++) {
+        h = (h << 4) + (*p);
+        if ((g = h & 0xf0000000)) {
+            h ^= g >> 24;
+            h ^= g;
+        }
+    }
+    return (int64_t) h % 211;
+}
