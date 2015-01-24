@@ -27,11 +27,13 @@ AND SUBPROGRAMS:
           LIT `0`
     THEN:
       ASSIGN
-        a
-      TO
         gcd
+      TO
+        a
     OTHERWISE:
       ASSIGN
+        gcd
+      TO
         APPLY `gcd`
         TO ARGS:
           b
@@ -40,8 +42,6 @@ AND SUBPROGRAMS:
               a
             RIGHT:
               b
-      TO
-        gcd
 DOES:
   APPLY `read` WITH:
     x

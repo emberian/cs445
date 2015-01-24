@@ -1,0 +1,31 @@
+PROGRAM `example` WITH ARGS:
+AND VARIABLES:
+  DECLARATION WITH TYPE:
+    INTEGER
+  OF NAMES:
+    `x`
+    `y`
+  DECLARATION WITH TYPE:
+    POINTER TO:
+      INTEGER
+  OF NAMES:
+    `a`
+    `b`
+    `c`
+AND SUBPROGRAMS:
+DOES:
+  ASSIGN
+    DEREF:
+      a
+  TO
+    x
+  ASSIGN
+    b
+  TO
+    a
+  ASSIGN
+    c
+  TO
+    ADDRESS OF:
+      y
+-- done dumping ast --

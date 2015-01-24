@@ -84,6 +84,8 @@ static void update_loc(YYLTYPE *yylloc, char *yytxt){
 ":=" { return ASSIGNOP; }
 ":"  { return COLON; }
 ";"  { return SEMI; }
+"^"  { return CARET; }
+"@"  { return AT; }
 
 [a-zA-Z_][a-zA-Z0-9_]* {
 #define _POSIX_SOURCE 200809L
@@ -97,6 +99,8 @@ static void update_loc(YYLTYPE *yylloc, char *yytxt){
     yylval->name = strndup(yytext, yyleng);
     return NUM;
 }
+
+. { fprintf(stderr, "unrecognized token `%s`", yytext); }
 
 %%
 

@@ -8,8 +8,8 @@ AND VARIABLES:
 AND SUBPROGRAMS:
 DOES:
   ASSIGN
-    LIT `42`
-  TO
     INDEX `a` WITH:
       LIT `1`
+  TO
+    LIT `42`
 -- done dumping ast --

@@ -133,6 +133,12 @@ void print_token(int tok, YYSTYPE *val) {
         case WHILE:
             puts("WHILE");
             break;
+        case AT:
+            puts("AT");
+            break;
+        case CARET:
+            puts("CARET");
+            break;
         default:
             fprintf(stderr, "Unknown token %d\n", tok);
             break;

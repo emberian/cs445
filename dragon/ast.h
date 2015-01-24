@@ -12,6 +12,7 @@ enum exprs {
     EXPR_LIT,
     EXPR_PATH,
     EXPR_UN,
+    EXPR_ADDROF,
 };
 
 enum stmts {
@@ -93,15 +94,13 @@ struct ast_expr {
     union {
         struct ast_path *path;
         char *lit;
+        struct ast_expr *addrof;
+        struct ast_path *deref;
 
         struct {
             struct ast_path *path;
             struct ast_expr *expr;
         } idx;
-
-        struct {
-            struct ast_expr *expr;
-        } deref;
 
         struct {
             struct ast_path *name;

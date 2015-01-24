@@ -29,13 +29,13 @@ AND SUBPROGRAMS:
     AND VARIABLES
     DOES:
       ASSIGN
+        md
+      TO
         BINOP MOD
           LEFT:
             a
           RIGHT:
             b
-      TO
-        md
       APPLY `foo`
   AND VARIABLES
   DOES:
@@ -47,11 +47,13 @@ AND SUBPROGRAMS:
           LIT `0`
     THEN:
       ASSIGN
-        a
-      TO
         gcd
+      TO
+        a
     OTHERWISE:
       ASSIGN
+        gcd
+      TO
         APPLY `gcd`
         TO ARGS:
           b
@@ -59,8 +61,6 @@ AND SUBPROGRAMS:
           TO ARGS:
             a
             b
-      TO
-        gcd
 DOES:
   APPLY `read` WITH:
     x

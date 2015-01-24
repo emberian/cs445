@@ -37,7 +37,8 @@ void print_expr(struct ast_expr *e, int indent) {
 
         case EXPR_DEREF:
             puts("DEREF:");
-            print_expr(e->deref.expr, indent+INDSZ);
+            print_path(e->deref, indent+INDSZ);
+            puts("");
             break;
 
         case EXPR_IDX:
@@ -63,9 +64,14 @@ void print_expr(struct ast_expr *e, int indent) {
             print_expr(e->unary.expr, indent+INDSZ);
             break;
 
+        case EXPR_ADDROF:
+            puts("ADDRESS OF:");
+            print_expr(e->addrof, indent+INDSZ);
+            break;
+
         default:
             fprintf(stderr, "unrecognized expr node...\n");
-            abort();
+            break;
     }
 }
 
@@ -128,7 +134,7 @@ void print_stmt(struct ast_stmt *s, int indent) {
 
         default:
             fprintf(stderr, "unrecognized stmt node...\n");
-            abort();
+            break;
     }
 }
 
@@ -164,7 +170,7 @@ void print_type(struct ast_type *t, int indent) {
 
         default:
             fprintf(stderr, "unrecognized type node...\n");
-            abort();
+            break;
     }
 }
 
@@ -252,7 +258,7 @@ void free_expr(struct ast_expr *e) {
             break;
 
         case EXPR_DEREF:
-            free_expr(e->deref.expr);
+            free_path(e->deref);
             break;
 
         case EXPR_IDX:
@@ -272,9 +278,13 @@ void free_expr(struct ast_expr *e) {
             free_expr(e->unary.expr);
             break;
 
+        case EXPR_ADDROF:
+            free_expr(e->addrof);
+            break;
+
         default:
             fprintf(stderr, "unrecognized expr node...\n");
-            abort();
+            break;
     }
 
     free(e);
@@ -317,7 +327,7 @@ void free_stmt(struct ast_stmt *s) {
 
         default:
             fprintf(stderr, "unrecognized stmt node...\n");
-            abort();
+            break;
     }
     free(s);
 }
@@ -349,7 +359,7 @@ void free_type(struct ast_type *t) {
 
         default:
             fprintf(stderr, "unrecognized type node...\n");
-            abort();
+            break;
     }
 
     free(t);
@@ -461,7 +471,7 @@ struct ast_expr *ast_expr(enum exprs tag, ...) {
             e->binary.right = va_arg(args, struct ast_expr *);
             break;
         case EXPR_DEREF:
-            e->deref.expr = va_arg(args, struct ast_expr *);
+            e->deref = va_arg(args, struct ast_path *);
             break;
         case EXPR_IDX:
             e->idx.path = va_arg(args, struct ast_path *);
@@ -476,6 +486,9 @@ struct ast_expr *ast_expr(enum exprs tag, ...) {
         case EXPR_UN:
             e->unary.op = va_arg(args, enum yytokentype);
             e->unary.expr = va_arg(args, struct ast_expr *);
+            break;
+        case EXPR_ADDROF:
+            e->addrof = va_arg(args, struct ast_expr *);
             break;
         default:
             fprintf(stderr, "unknown expr type...");
@@ -495,8 +508,8 @@ struct ast_stmt *ast_stmt(enum stmts tag, ...) {
     s->tag = tag;
     switch (tag) {
         case STMT_ASSIGN:
-            s->assign.rvalue = va_arg(args, struct ast_expr *);
             s->assign.lvalue = va_arg(args, struct ast_expr *);
+            s->assign.rvalue = va_arg(args, struct ast_expr *);
             break;
         case STMT_FOR:
             s->foor.id = va_arg(args, char *);

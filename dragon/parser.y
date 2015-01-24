@@ -28,6 +28,7 @@ struct ast_program;
 %token REAL
 %token ARRAY
 %token CARET
+%token AT
 %token OF
 %token PROGRAM
 %token EQ
@@ -145,6 +146,7 @@ declarations : declarations VAR identifier_list COLON type SEMI { $$ = $1; list_
 
 type : standard_type
      | ARRAY LBRACKET num DOTDOT num RBRACKET OF standard_type { $$ = ast_type(TYPE_ARRAY, $3, $5, $8); }
+     | CARET type { $$ = ast_type(TYPE_POINTER, $2); }
      ;
 
 standard_type : INTEGER { $$ = ast_type(TYPE_INTEGER); }
@@ -233,6 +235,7 @@ factor : path LPAREN expression_list RPAREN { $$ = ast_expr(EXPR_APP, $1, $3); }
        | LPAREN expression RPAREN         { $$ = $2;                         }
        | NOT factor                       { $$ = ast_expr(EXPR_UN, NOT, $2); }
        | lvalue
+       | AT factor                        { $$ = ast_expr(EXPR_ADDROF, $2);  }
        ;
 
 sign : PLUS  { $$ = PLUS; }
