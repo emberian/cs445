@@ -160,12 +160,17 @@ void print_type(struct ast_type *t, int indent) {
             print_type(t->pointer, indent+INDSZ);
             break;
 
+        case TYPE_REF:
+            printf("REFERENCE `%s`", t->ref);
+            break;
+
         case TYPE_FUNCTION:
             puts("<function types not supported>");
             break;
 
         case TYPE_RECORD:
-            puts("<record types not supported>");
+            puts("RECORD WITH FIELDS:");
+            LFOREACH(struct ast_record_field *, f, t->record, print_record_field(f, indent+INDSZ));
             break;
 
         default:
@@ -238,6 +243,12 @@ void print_program(struct ast_program *p, int indent) {
 
     INDENT; puts("DOES:");
     print_stmt(p->body, indent+INDSZ);
+}
+
+void print_record_field(struct ast_record_field *f, int indent) {
+    INDENT;
+    printf("FIELD `%s` WITH TYPE:\n", f->name);
+    print_type(f->type, indent+INDSZ);
 }
 
 #undef INDENT
@@ -355,6 +366,11 @@ void free_type(struct ast_type *t) {
             break;
 
         case TYPE_RECORD:
+            list_free(t->record);
+            break;
+
+        case TYPE_REF:
+            free(t->ref);
             break;
 
         default:
@@ -386,6 +402,7 @@ void free_subprogram_decl(struct ast_subdecl *d) {
 
     list_free(d->subprogs);
     list_free(d->decls);
+    list_free(d->types);
     free_stmt(d->body);
     free(d);
 }
@@ -401,9 +418,25 @@ void free_program(struct ast_program *p) {
     free(p->name);
     list_free(p->args);
     list_free(p->decls);
+    list_free(p->types);
     list_free(p->subprogs);
     free_stmt(p->body);
     free(p);
+}
+
+void free_type_decl(struct ast_type_decl *t) {
+    if (t == NULL) return;
+
+    free(t->name);
+    free_type(t->type);
+    free(t);
+}
+
+void free_record_field(struct ast_record_field *f) {
+    if (f == NULL) return;
+    free(f->name);
+    free_type(f->type);
+    free(f);
 }
 
 /* constructors */
@@ -419,10 +452,11 @@ void ast_path_append(struct ast_path *p, char *name) {
 }
 
 struct ast_program *ast_program(char *name, struct list *args, struct list *decls,
-                                 struct list *subprogs, struct ast_stmt *body) {
+        struct list *types, struct list *subprogs, struct ast_stmt *body) {
     struct ast_program *p = M(struct ast_program);
     p->name = name;
     p->args = args;
+    p->types = types;
     p->decls = decls;
     p->subprogs = subprogs;
     p->body = body;
@@ -438,11 +472,13 @@ struct ast_subhead *ast_subprogram_head(enum subprogs t, char *name, struct list
     return n;
 }
 
-struct ast_subdecl *ast_subprogram_decl(struct ast_subhead *head, struct list *subprogs, struct list *decls, struct ast_stmt *body) {
+struct ast_subdecl *ast_subprogram_decl(struct ast_subhead *head, struct list *subprogs, struct list *types,
+        struct list *decls, struct ast_stmt *body) {
     struct ast_subdecl *n = M(struct ast_subdecl);
     n->head = head;
     n->decls = decls;
     n->subprogs = subprogs;
+    n->types = types;
     n->body = body;
     return n;
 }
@@ -560,9 +596,14 @@ struct ast_type *ast_type(enum types tag, ...) {
             t->pointer = va_arg(args, struct ast_type *);
             break;
         case TYPE_FUNCTION:
-        case TYPE_RECORD:
-            fprintf(stderr, "function, and record types NYI\n");
+            fprintf(stderr, "function types NYI\n");
             abort();
+            break;
+        case TYPE_RECORD:
+            t->record = va_arg(args, struct list *);
+            break;
+        case TYPE_REF:
+            t->ref = va_arg(args, char *);
             break;
         case TYPE_INTEGER:
         case TYPE_REAL:
@@ -575,4 +616,18 @@ struct ast_type *ast_type(enum types tag, ...) {
     }
     va_end(args);
     return t;
+}
+
+struct ast_type_decl *ast_type_decl(char *name, struct ast_type *type) {
+    struct ast_type_decl *t = M(struct ast_type_decl);
+    t->name = name;
+    t->type = type;
+    return t;
+}
+
+struct ast_record_field *ast_record_field(char *name, struct ast_type *type) {
+    struct ast_record_field *f = M(struct ast_record_field);
+    f->name = name;
+    f->type = type;
+    return f;
 }

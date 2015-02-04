@@ -61,31 +61,14 @@ static void update_loc(YYLTYPE *yylloc, char *yytxt){
 "while"     { return WHILE; }
 "for"       { return FOR; }
 "to"        { return TO; }
+"type"      { return TYPE; }
+"record"    { return RECORD; }
 
-"="  { return EQ; }
-"<>" { return NEQ; }
-"<"  { return LT; }
-"<=" { return LE; }
-">"  { return GT; }
-">=" { return GE; }
-
-"+" { return PLUS; }
-"-" { return MINUS; }
-"*" { return STAR; }
-"/" { return SLASH; }
-
-"("  { return LPAREN; }
-")"  { return RPAREN; }
-"["  { return LBRACKET; }
-"]"  { return RBRACKET; }
-","  { return COMMA; }
-".." { return DOTDOT; }
-"."  { return DOT; }
-":=" { return ASSIGNOP; }
-":"  { return COLON; }
-";"  { return SEMI; }
-"^"  { return CARET; }
-"@"  { return AT; }
+":="        { return ASSIGNOP; }
+"<>"        { return NEQ; }
+"<="        { return LE; }
+">="        { return GE; }
+".."        { return DOTDOT; }
 
 [a-zA-Z_][a-zA-Z0-9_]* {
 #define _POSIX_SOURCE 200809L
@@ -95,12 +78,13 @@ static void update_loc(YYLTYPE *yylloc, char *yytxt){
 }
 
 [0-9]+(\.[0-9]+)?([eE](\+|\-)?[0-9]+)? {
+#define _POSIX_SOURCE 200809L
 #include <string.h>
     yylval->name = strndup(yytext, yyleng);
     return NUM;
 }
 
-. { fprintf(stderr, "unrecognized token `%s`", yytext); }
+. { return yytext[0]; }
 
 %%
 

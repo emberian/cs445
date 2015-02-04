@@ -36,6 +36,7 @@ enum types {
     TYPE_POINTER,
     TYPE_REAL,
     TYPE_RECORD,
+    TYPE_REF,
 };
 
 struct ast_type {
@@ -46,6 +47,8 @@ struct ast_type {
             struct ast_type *elts;
         } array;
         struct ast_type *pointer;
+        char *ref;
+        struct list *record;
     };
 };
 
@@ -54,6 +57,11 @@ struct ast_type {
  */
 struct ast_decls {
     struct list *names;
+    struct ast_type *type;
+};
+
+struct ast_type_decl {
+    char *name;
     struct ast_type *type;
 };
 
@@ -121,7 +129,7 @@ struct ast_expr {
 
 struct ast_subdecl {
     struct ast_subhead *head;
-    struct list *decls, *subprogs;
+    struct list *decls, *subprogs, *types;
     struct ast_stmt *body;
 };
 
@@ -138,18 +146,25 @@ struct ast_path {
 
 struct ast_program {
     char *name;
-    struct list *args, *decls, *subprogs;
+    struct list *args, *decls, *subprogs, *types;
     struct ast_stmt *body;
 };
 
-struct ast_decls *ast_decls             ( struct list *, struct ast_type *);
-struct ast_subhead *ast_subprogram_head ( enum subprogs, char *, struct list *, struct ast_type *);
-struct ast_subdecl *ast_subprogram_decl ( struct ast_subhead *, struct list *, struct list *, struct ast_stmt *);
-struct ast_path *ast_path               ( char *);
-struct ast_program *ast_program         ( char *, struct list *, struct list *, struct list *, struct ast_stmt *);
-struct ast_expr *ast_expr               ( enum exprs, ...);
-struct ast_stmt *ast_stmt               ( enum stmts, ...);
-struct ast_type *ast_type               ( enum types, ...);
+struct ast_record_field {
+    char *name;
+    struct ast_type *type;
+};
+
+struct ast_decls *ast_decls               ( struct list *, struct ast_type *);
+struct ast_subhead *ast_subprogram_head   ( enum subprogs, char *, struct list *, struct ast_type *);
+struct ast_subdecl *ast_subprogram_decl   ( struct ast_subhead *, struct list *, struct list *, struct list *, struct ast_stmt *);
+struct ast_path *ast_path                 ( char *);
+struct ast_program *ast_program           ( char *, struct list *, struct list *, struct list *, struct list *, struct ast_stmt *);
+struct ast_expr *ast_expr                 ( enum exprs, ...);
+struct ast_stmt *ast_stmt                 ( enum stmts, ...);
+struct ast_type *ast_type                 ( enum types, ...);
+struct ast_type_decl *ast_type_decl       ( char *, struct ast_type *);
+struct ast_record_field *ast_record_field ( char *, struct ast_type *);
 
 void ast_path_append(struct ast_path *, char *);
 
@@ -161,6 +176,8 @@ void print_subprogram_head ( struct ast_subhead *, int);
 void print_subprogram_decl ( struct ast_subdecl *, int);
 void print_path            ( struct ast_path *, int);
 void print_program         ( struct ast_program *, int);
+void print_type_decl       ( struct ast_type_decl *, int);
+void print_record_field    ( struct ast_record_field *, int);
 
 void free_expr            ( struct ast_expr *);
 void free_stmt            ( struct ast_stmt *);
@@ -170,5 +187,7 @@ void free_subprogram_head ( struct ast_subhead *);
 void free_subprogram_decl ( struct ast_subdecl *);
 void free_path            ( struct ast_path *);
 void free_program         ( struct ast_program *);
+void free_type_decl       ( struct ast_type_decl *);
+void free_record_field    ( struct ast_record_field *);
 
 #endif

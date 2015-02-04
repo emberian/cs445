@@ -1,7 +1,7 @@
 #ifndef _CODEGEN_H
 #define _CODEGEN_H
-#include "ast.h"
+#include "translate.h"
 
-char *codegen(struct ast_program *);
+char *codegen(struct ir *);
 
 #endif

@@ -13,7 +13,7 @@ file(GLOB dragon_headers *.h)
 
 find_package(BISON)
 bison_target(parser parser.y ${CMAKE_CURRENT_BINARY_DIR}/parser.tab.c
-    COMPILE_FLAGS "--report-file=${CMAKE_CURRENT_BINARY_DIR}/parser.output")
+    COMPILE_FLAGS "-Werror=all --report=all --report-file=${CMAKE_CURRENT_BINARY_DIR}/parser.output")
 
 find_package(FLEX)
 flex_target(lexer lexer.l ${CMAKE_CURRENT_BINARY_DIR}/lexer.c

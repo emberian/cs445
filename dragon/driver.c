@@ -5,6 +5,7 @@
 #include "lexer.h"
 #include "parser.tab.h"
 #include "token.h"
+#include "translate.h"
 
 char *compile_input(char *program_source, size_t len, int options) {
     void *lexer;
@@ -59,11 +60,24 @@ char *compile_input(char *program_source, size_t len, int options) {
     }
 
 
-    if (options & NO_CODEGEN) {
+    if (options & NO_ANALYSIS) {
         free_program(program);
         return "";
     }
 
-    return codegen(program);
+    struct ir *ir = translate(program);
+    free_program(program);
+
+    if (options & NO_CODEGEN) {
+        free_ir(ir);
+        return "";
+    }
+
+    char *code = codegen(ir);
+    free_ir(ir);
+    return code;
 }
 
+
+void free_ir(struct ir *i) { }
+struct ir *translate(struct ast_program *prog) { return NULL; }

@@ -49,64 +49,64 @@ void print_token(int tok, YYSTYPE *val) {
         case PROGRAM:
             puts("PROGRAM");
             break;
-        case EQ:
+        case '=':
             puts("EQ");
             break;
         case NEQ:
             puts("NEQ");
             break;
-        case LT:
+        case '<':
             puts("LT");
             break;
         case LE:
             puts("LE");
             break;
-        case GT:
+        case '>':
             puts("GT");
             break;
         case GE:
             puts("GE");
             break;
-        case PLUS:
+        case '+':
             puts("PLUS");
             break;
-        case MINUS:
+        case '-':
             puts("MINUS");
             break;
-        case STAR:
+        case '*':
             puts("STAR");
             break;
-        case SLASH:
+        case '/':
             puts("SLASH");
             break;
-        case LPAREN:
+        case '(':
             puts("LPAREN");
             break;
-        case RPAREN:
+        case ')':
             puts("RPAREN");
             break;
-        case LBRACKET:
+        case '[':
             puts("LBRACKET");
             break;
-        case RBRACKET:
+        case ']':
             puts("RBRACKET");
             break;
-        case COMMA:
+        case ',':
             puts("COMMA");
+            break;
+        case '.':
+            puts("DOT");
             break;
         case DOTDOT:
             puts("DOTDOT");
             break;
-        case DOT:
-            puts("DOT");
-            break;
         case ASSIGNOP:
             puts("ASSIGNOP");
             break;
-        case COLON:
+        case ':':
             puts("COLON");
             break;
-        case SEMI:
+        case ';':
             puts("SEMI");
             break;
         case ID:
@@ -133,10 +133,10 @@ void print_token(int tok, YYSTYPE *val) {
         case WHILE:
             puts("WHILE");
             break;
-        case AT:
+        case '@':
             puts("AT");
             break;
-        case CARET:
+        case '^':
             puts("CARET");
             break;
         default:

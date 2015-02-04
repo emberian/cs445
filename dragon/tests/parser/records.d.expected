@@ -1,0 +1,16 @@
+PROGRAM `example` WITH ARGS:
+AND VARIABLES:
+  DECLARATION WITH TYPE:
+    REFERENCE `foo`  OF NAMES:
+    `a`
+AND SUBPROGRAMS:
+DOES:
+  ASSIGN
+    a.a
+  TO
+    LIT `0`
+  ASSIGN
+    a.b
+  TO
+    LIT `0`
+-- done dumping ast --
