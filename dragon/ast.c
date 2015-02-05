@@ -156,6 +156,18 @@ void print_type(struct ast_type *t, int indent) {
             puts("REAL");
             break;
 
+        case TYPE_STRING:
+            puts("STRING");
+            break;
+
+        case TYPE_BOOLEAN:
+            puts("BOOLEAN");
+            break;
+
+        case TYPE_CHAR:
+            puts("CHAR");
+            break;
+
         case TYPE_ARRAY:
             printf("ARRAY [`%s` .. `%s`] OF:\n", t->array.lower, t->array.upper);
             print_type(t->array.elt_type, indent+INDSZ);
@@ -362,9 +374,10 @@ void free_type(struct ast_type *t) {
     if (t == NULL) return;
     switch (t->tag) {
         case TYPE_INTEGER:
-            break;
-
+        case TYPE_STRING:
         case TYPE_REAL:
+        case TYPE_BOOLEAN:
+        case TYPE_CHAR:
             break;
 
         case TYPE_ARRAY:
@@ -610,6 +623,9 @@ struct ast_type *ast_type(enum types tag, ...) {
             break;
         case TYPE_INTEGER:
         case TYPE_REAL:
+        case TYPE_STRING:
+        case TYPE_BOOLEAN:
+        case TYPE_CHAR:
             break;
         default:
             fprintf(stderr, "unkwown type type...\n");

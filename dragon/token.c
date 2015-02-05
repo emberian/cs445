@@ -10,6 +10,15 @@ void print_token(int tok, YYSTYPE *val) {
         case DIV:
             puts("DIV");
             break;
+        case BOOLEAN:
+            puts("BOOLEAN");
+            break;
+        case STRING:
+            puts("STRING");
+            break;
+        case CHAR:
+            puts("CHAR");
+            break;
         case MOD:
             puts("MOD");
             break;

@@ -5,12 +5,9 @@
 
 #define INTEGER_TYPE_IDX 0
 #define REAL_TYPE_IDX 1
-
-static void stab_err(struct stab *st, char *fmt, YYLTYPE *loc, ...) {
-    va_list args;
-    va_start(args, loc);
-    vfprintf(stderr, fmt, args);
-}
+#define STRING_TYPE_IDX 2
+#define BOOLEAN_TYPE_IDX 3
+#define CHAR_TYPE_IDX 4
 
 static uint64_t hash_stab_scope(struct stab_scope *sc) {
     return hashpjw((char *)sc, sizeof(sc));
@@ -219,6 +216,12 @@ size_t stab_resolve_type(struct stab *st, char *name, struct ast_type *ty) {
             return INTEGER_TYPE_IDX;
         case TYPE_REAL:
             return REAL_TYPE_IDX;
+        case TYPE_STRING:
+            return STRING_TYPE_IDX;
+        case TYPE_BOOLEAN:
+            return BOOLEAN_TYPE_IDX;
+        case TYPE_CHAR:
+            return CHAR_TYPE_IDX;
 
         case TYPE_POINTER:
         case TYPE_RECORD:
@@ -238,7 +241,7 @@ void stab_add_decls(struct stab *st, struct ast_decls *decls) {
     size_t type = stab_resolve_type(st, strdup("<decls>"), decls->type);
     LFOREACH(char *var, decls->names)
         if (stab_has_local_var(st, (char *)var)) {
-            stab_err(st, "%s is already defined", NULL, var);
+            span_err("%s is already defined", NULL, var);
         } else {
             stab_add_var(st, var, type, NULL);
         }
@@ -250,7 +253,7 @@ void stab_add_decls(struct stab *st, struct ast_decls *decls) {
 void stab_add_func(struct stab *st, char *name, struct ast_type *sig) {
     assert(sig->tag == TYPE_FUNCTION);
     if (stab_has_local_func(st, name)) {
-        stab_err(st, "%s is already defined", NULL, name);
+        span_err("%s is already defined", NULL, name);
     } else {
         size_t type = stab_resolve_type(st, name, sig);
         hash_insert(((struct stab_scope *)list_last(st->chain))->funcs, YOLO name, YOLO type);
@@ -261,7 +264,7 @@ void stab_add_func(struct stab *st, char *name, struct ast_type *sig) {
 
 void stab_add_type(struct stab *st, char *name, struct ast_type *ty) {
     if (stab_has_local_type(st, name)) {
-        stab_err(st, "%s is already defined", NULL, name);
+        span_err("%s is already defined", NULL, name);
     } else {
         size_t type = stab_resolve_type(st, name, ty);
         hash_insert(((struct stab_scope *)list_last(st->chain))->types, YOLO name, YOLO type);

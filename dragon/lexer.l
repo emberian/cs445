@@ -39,30 +39,33 @@ static void update_loc(YYLTYPE *yylloc, char *yytxt){
 "//".*          {  }
 [ \t\n]         {  }
 
-"div"       { return DIV; }
-"mod"       { return MOD; }
 "and"       { return AND; }
-"or"        { return OR; }
-"not"       { return NOT; }
-"function"  { return FUNCTION; }
-"procedure" { return PROCEDURE; }
-"begin"     { return TBEGIN; }
-"end"       { return END; }
-"integer"   { return INTEGER; }
-"real"      { return REAL; }
 "array"     { return ARRAY; }
-"of"        { return OF; }
-"program"   { return PROGRAM; }
+"begin"     { return TBEGIN; }
+"boolean"   { return BOOLEAN; }
+"char"      { return CHAR; }
+"div"       { return DIV; }
 "do"        { return DO; }
 "else"      { return ELSE; }
-"if"        { return IF; }
-"then"      { return THEN; }
-"var"       { return VAR; }
-"while"     { return WHILE; }
+"end"       { return END; }
 "for"       { return FOR; }
+"function"  { return FUNCTION; }
+"if"        { return IF; }
+"integer"   { return INTEGER; }
+"mod"       { return MOD; }
+"not"       { return NOT; }
+"of"        { return OF; }
+"or"        { return OR; }
+"procedure" { return PROCEDURE; }
+"program"   { return PROGRAM; }
+"real"      { return REAL; }
+"record"    { return RECORD; }
+"string"    { return STRING; }
+"then"      { return THEN; }
 "to"        { return TO; }
 "type"      { return TYPE; }
-"record"    { return RECORD; }
+"var"       { return VAR; }
+"while"     { return WHILE; }
 
 ":="        { return ASSIGNOP; }
 "<>"        { return NEQ; }

@@ -1,4 +1,5 @@
 #include "ast.h"
+#include "analysis.h"
 #include "codegen.h"
 #include "driver.h"
 #include "driver.h"
@@ -65,8 +66,18 @@ char *compile_input(char *program_source, size_t len, int options) {
         return "";
     }
 
-    struct ir *ir = translate(program);
+    struct stab *st = analyze(program);
+
+    if (options & NO_TRANSLATION) {
+        free_program(program);
+        stab_free(st);
+        return "";
+    }
+
+    struct ir *ir = translate(program, st);
+
     free_program(program);
+    stab_free(st);
 
     if (options & NO_CODEGEN) {
         free_ir(ir);
@@ -75,12 +86,6 @@ char *compile_input(char *program_source, size_t len, int options) {
 
     char *code = codegen(ir);
     free_ir(ir);
+
     return code;
 }
-
-
-static struct rec_layout only_rec = { 8, 8 };
-void free_ir(struct ir *i) { }
-struct ir *translate(struct ast_program *prog) { return NULL; }
-void free_rec_layout(struct rec_layout *r) { }
-struct rec_layout *compute_rec_layout(struct stab *st, struct list *fields) { return &only_rec; }

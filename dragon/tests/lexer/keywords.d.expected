@@ -19,5 +19,8 @@ THEN
 VAR
 WHILE
 ID(boop)
+BOOLEAN
+STRING
+CHAR
 EOF
 -- done dumping tokens --

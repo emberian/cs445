@@ -6,7 +6,7 @@
 
 #include "driver.h"
 
-static char *USAGE = "usage: comp [-lpnNC] <filename>";
+static char *USAGE = "usage: comp [-lpnNCT] <filename>";
 
 int main(int argc, char **argv) {
     if (argc < 2) {
@@ -36,6 +36,9 @@ int main(int argc, char **argv) {
                     break;
                 case 'N':
                     options |= NO_ANALYSIS;
+                    break;
+                case 'T':
+                    options |= NO_TRANSLATION;
                     break;
                 case 'C':
                     options |= NO_CODEGEN;

@@ -16,6 +16,8 @@ struct ast_program;
 
 %token AND
 %token ARRAY
+%token BOOLEAN
+%token CHAR
 %token DIV
 %token DO
 %token ELSE
@@ -34,6 +36,7 @@ struct ast_program;
 %token PROGRAM
 %token REAL
 %token RECORD
+%token STRING
 %token TBEGIN
 %token THEN
 %token TO
@@ -146,6 +149,9 @@ record_fields : record_fields ID ':' type ';' { $$ = $1; list_add($$, ast_record
 
 standard_type : INTEGER { $$ = ast_type(TYPE_INTEGER); }
               | REAL    { $$ = ast_type(TYPE_REAL); }
+              | STRING  { $$ = ast_type(TYPE_STRING); }
+              | BOOLEAN { $$ = ast_type(TYPE_BOOLEAN); }
+              | CHAR    { $$ = ast_type(TYPE_CHAR); }
               ;
 
 subprogram_declarations : subprogram_declarations subprogram_declaration ';' { $$ = $1; list_add($$, $2); }

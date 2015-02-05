@@ -1,4 +1,5 @@
 #include <stdarg.h>
+#include <stdio.h>
 #include <string.h>
 #include <assert.h>
 
@@ -206,4 +207,10 @@ uint64_t hashpjw(char *string, size_t size) {
         }
     }
     return h;
+}
+
+void span_err(char *fmt, YYLTYPE *loc, ...) {
+    va_list args;
+    va_start(args, loc);
+    vfprintf(stderr, fmt, args);
 }

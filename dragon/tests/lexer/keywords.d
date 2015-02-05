@@ -18,3 +18,6 @@ if
 then
 var
 while boop
+boolean
+string
+char

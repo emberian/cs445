@@ -43,7 +43,7 @@ case $4 in
         mkdir -p $tmp/$1/tests/parser
         for file in $1/tests/parser/*.d; do
             declare -a failed
-            $2 -pC $file > $tmp/$file.actual 2>&1
+            $2 -pN $file > $tmp/$file.actual 2>&1
             if not diff -u $tmp/$file.actual $file.expected; then
                 echo "Test failed: $file"
                 failed+=($file)

@@ -75,4 +75,10 @@ void hash_insert(struct hash_table *, void *, void *);
 void hash_free(struct hash_table *);
 uint64_t hashpjw(char *, size_t);
 
+/* compiler-specific stuff, remove if copying */
+
+struct YYLTYPE;
+
+void span_err(char *fmt, struct YYLTYPE *loc, ...);
+
 #endif

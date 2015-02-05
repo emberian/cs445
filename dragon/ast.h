@@ -31,12 +31,15 @@ enum subprogs {
 
 enum types {
     TYPE_ARRAY,
+    TYPE_BOOLEAN,
+    TYPE_CHAR,
     TYPE_FUNCTION,
     TYPE_INTEGER,
     TYPE_POINTER,
     TYPE_REAL,
     TYPE_RECORD,
     TYPE_REF,
+    TYPE_STRING,
 };
 
 struct ast_type {

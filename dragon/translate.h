@@ -18,7 +18,7 @@ struct rec_layout {
     int64_t size, align;
 };
 
-struct ir *translate(struct ast_program *);
+struct ir *translate(struct ast_program *, struct stab *);
 void free_ir(struct ir *);
 
 void free_rec_layout(struct rec_layout *);
