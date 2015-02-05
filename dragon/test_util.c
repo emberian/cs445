@@ -21,7 +21,14 @@ void test_list_append() {
     }
 
     int i = 0;
-    LFOREACH(int *, e, l, assert(*e == i++););
+    LFOREACH(int *e, l)
+        assert(*e == i++);
+    ENDLFOREACH;
+
+    LFOREACHREV(int *e, l)
+        assert(*e == --i);
+    ENDLFOREACHREV;
+
     list_free(l);
 }
 
@@ -50,6 +57,19 @@ void test_hash_smoke() {
     }
 
     hash_free(h);
+}
+
+void test_ptrvec_smoke() {
+    int *a = M(int), *b = M(int), *c = M(int), *d = M(int);
+    *a = 0; *b = 1; *c = 2; *d = 3;
+
+    struct ptrvec *p = ptrvec_wcap(0, free);
+    assert(ptrvec_push(p, a) == 0);
+    assert(ptrvec_push(p, b) == 1);
+    assert(ptrvec_push(p, c) == 2);
+    assert(ptrvec_push(p, d) == 3);
+
+    ptrvec_free(p);
 }
 
 int main(int argc, char **argv) {

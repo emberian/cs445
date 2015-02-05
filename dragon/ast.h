@@ -40,16 +40,21 @@ enum types {
 };
 
 struct ast_type {
-    enum types tag;
     union {
         struct {
             char *lower, *upper;
-            struct ast_type *elts;
+            struct ast_type *elt_type;
         } array;
+        struct {
+            enum subprogs type; // func or proc?
+            struct list *args; // arg types
+            struct ast_type *retty; // ret ty
+        } func;
         struct ast_type *pointer;
         char *ref;
         struct list *record;
     };
+    enum types tag;
 };
 
 /**
@@ -66,7 +71,6 @@ struct ast_type_decl {
 };
 
 struct ast_stmt {
-    enum stmts tag;
     union {
         struct list *stmts;
 
@@ -95,10 +99,10 @@ struct ast_stmt {
             struct list *args;
         } apply;
     };
+    enum stmts tag;
 };
 
 struct ast_expr {
-    enum exprs tag;
     union {
         struct ast_path *path;
         char *lit;
@@ -125,19 +129,14 @@ struct ast_expr {
             struct ast_expr *left, *right;
         } binary;
     };
+    enum exprs tag;
 };
 
 struct ast_subdecl {
-    struct ast_subhead *head;
+    struct ast_type *head;
+    char *name;
     struct list *decls, *subprogs, *types;
     struct ast_stmt *body;
-};
-
-struct ast_subhead {
-    enum subprogs type;
-    char *name;
-    struct list *args;
-    struct ast_type *retty;
 };
 
 struct ast_path {
@@ -156,8 +155,7 @@ struct ast_record_field {
 };
 
 struct ast_decls *ast_decls               ( struct list *, struct ast_type *);
-struct ast_subhead *ast_subprogram_head   ( enum subprogs, char *, struct list *, struct ast_type *);
-struct ast_subdecl *ast_subprogram_decl   ( struct ast_subhead *, struct list *, struct list *, struct list *, struct ast_stmt *);
+struct ast_subdecl *ast_subprogram_decl   ( struct ast_type *, char *, struct list *, struct list *, struct list *, struct ast_stmt *);
 struct ast_path *ast_path                 ( char *);
 struct ast_program *ast_program           ( char *, struct list *, struct list *, struct list *, struct list *, struct ast_stmt *);
 struct ast_expr *ast_expr                 ( enum exprs, ...);
@@ -172,7 +170,6 @@ void print_expr            ( struct ast_expr *, int);
 void print_stmt            ( struct ast_stmt *, int);
 void print_type            ( struct ast_type *, int);
 void print_decls           ( struct ast_decls *, int);
-void print_subprogram_head ( struct ast_subhead *, int);
 void print_subprogram_decl ( struct ast_subdecl *, int);
 void print_path            ( struct ast_path *, int);
 void print_program         ( struct ast_program *, int);
@@ -183,7 +180,6 @@ void free_expr            ( struct ast_expr *);
 void free_stmt            ( struct ast_stmt *);
 void free_type            ( struct ast_type *);
 void free_decls           ( struct ast_decls *);
-void free_subprogram_head ( struct ast_subhead *);
 void free_subprogram_decl ( struct ast_subdecl *);
 void free_path            ( struct ast_path *);
 void free_program         ( struct ast_program *);

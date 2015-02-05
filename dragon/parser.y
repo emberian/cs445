@@ -3,7 +3,6 @@
 #include "ast.h"
 #include "util.h"
 #include "lexer.h"
-#define CB (void (*)(void*))
 
 extern int yyerror(YYLTYPE *, struct ast_program **, int options, void *scanner, const char *s);
 
@@ -53,7 +52,6 @@ struct ast_program;
     struct ast_type *type;
     struct ast_stmt *stmt;
     struct ast_subdecl *subdecl;
-    struct ast_subhead *head;
     struct ast_expr *expr;
     struct ast_path *path;
     enum yytokentype tok;
@@ -61,7 +59,6 @@ struct ast_program;
 }
 
 %destructor { free_expr($$); } <expr>
-%destructor { free_subprogram_head($$); } <head>
 %destructor { free($$); } <name>
 %destructor { free_path($$); } <path>
 %destructor { free_stmt($$); } <stmt>
@@ -75,7 +72,6 @@ struct ast_program;
 %type <expr> lvalue
 %type <expr> simple_expression
 %type <expr> term
-%type <head> subprogram_head
 %type <nlist> arguments
 %type <nlist> declarations
 %type <nlist> expression_list
@@ -96,6 +92,7 @@ struct ast_program;
 %type <tok> mulop
 %type <tok> relop
 %type <tok> sign
+%type <tok> FUNCTION PROCEDURE
 %type <name> ID NUM
 %type <type> standard_type
 %type <type> type
@@ -155,25 +152,19 @@ subprogram_declarations : subprogram_declarations subprogram_declaration ';' { $
                         | %empty                                              { $$ = list_empty(CB free_subprogram_decl); }
                         ;
 
-subprogram_declaration : subprogram_head subprogram_declarations
+subprogram_declaration : FUNCTION ID arguments ':' standard_type ';'  subprogram_declarations
                        type_declarations declarations compound_statement
                        {
-                       $$ = ast_subprogram_decl($1, $2, $3, $4, $5);
+                       $$ = ast_subprogram_decl(ast_type(TYPE_FUNCTION, $1, $3, $5), $2, $7, $8, $9, $10);
+                       }
+                       | PROCEDURE ID arguments subprogram_declarations type_declarations declarations compound_statement
+                       {
+                       $$ = ast_subprogram_decl(ast_type(TYPE_FUNCTION, $1, $3, NULL), $2, $4, $5, $6, $7);
                        }
                        ;
 
-subprogram_head : FUNCTION ID arguments ':' standard_type ';'
-                {
-                $$ = ast_subprogram_head(SUB_FUNCTION, $2, $3, $5);
-                }
-                | PROCEDURE ID arguments
-                {
-                $$ = ast_subprogram_head(SUB_PROCEDURE, $2, $3, NULL);
-                }
-                ;
-
 arguments : '(' parameter_list ')' { $$ = $2; }
-          | %empty                 { $$ = list_empty(free); }
+          | %empty                 { $$ = list_empty(CB free_decls); }
           ;
 
 parameter_list : identifier_list ':' type                    { $$ = list_new(ast_decls($1, $3), CB free_decls); }

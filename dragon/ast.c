@@ -19,7 +19,9 @@ void print_expr(struct ast_expr *e, int indent) {
             print_path(e->apply.name, 0);
             printf("`\n");
             INDENT; puts("TO ARGS:");
-            LFOREACH(struct ast_expr *, arg, e->apply.args, print_expr(arg, indent+INDSZ));
+            LFOREACH(struct ast_expr *arg, e->apply.args)
+                print_expr(arg, indent+INDSZ);
+            ENDLFOREACH;
             break;
 
         case EXPR_BIN:
@@ -98,7 +100,9 @@ void print_stmt(struct ast_stmt *s, int indent) {
             break;
 
         case STMT_STMTS:
-            LFOREACH(struct ast_stmt *, stmt, s->stmts, print_stmt(stmt, indent));
+            LFOREACH(struct ast_stmt *stmt, s->stmts)
+                print_stmt(stmt, indent);
+            ENDLFOREACH;
             break;
 
         case STMT_PROC:
@@ -107,7 +111,9 @@ void print_stmt(struct ast_stmt *s, int indent) {
             print_path(s->apply.name, 0);
             if (s->apply.args) {
                 puts("` WITH:");
-                LFOREACH(struct ast_expr *, arg, s->apply.args, print_expr(arg, indent+INDSZ));
+                LFOREACH(struct ast_expr *arg, s->apply.args)
+                    print_expr(arg, indent+INDSZ);
+                ENDLFOREACH;
             } else {
                 puts("`");
             }
@@ -152,7 +158,7 @@ void print_type(struct ast_type *t, int indent) {
 
         case TYPE_ARRAY:
             printf("ARRAY [`%s` .. `%s`] OF:\n", t->array.lower, t->array.upper);
-            print_type(t->array.elts, indent+INDSZ);
+            print_type(t->array.elt_type, indent+INDSZ);
             break;
 
         case TYPE_POINTER:
@@ -165,12 +171,21 @@ void print_type(struct ast_type *t, int indent) {
             break;
 
         case TYPE_FUNCTION:
-            puts("<function types not supported>");
+            printf("%s WITH ARGUMENTS:\n", t->func.type == SUB_FUNCTION ? "FUNCTION" : "PROCEDURE");
+            LFOREACH(struct ast_decls *d, t->func.args)
+                print_decls(d, indent+INDSZ);
+            ENDLFOREACH;
+            if (t->func.type == SUB_FUNCTION) {
+                INDENT; puts("RETURNING:");
+                print_type(t->func.retty, indent+INDSZ);
+            }
             break;
 
         case TYPE_RECORD:
             puts("RECORD WITH FIELDS:");
-            LFOREACH(struct ast_record_field *, f, t->record, print_record_field(f, indent+INDSZ));
+            LFOREACH(struct ast_record_field *f, t->record)
+                print_record_field(f, indent+INDSZ);
+            ENDLFOREACH;
             break;
 
         default:
@@ -185,31 +200,25 @@ void print_decls(struct ast_decls *d, int indent) {
     print_type(d->type, indent+INDSZ);
     INDENT; puts("OF NAMES:");
     indent += INDSZ;
-    LFOREACH(char *, name, d->names, INDENT; printf("`%s`\n", name););
+    LFOREACH(char *name, d->names)
+        INDENT; printf("`%s`\n", name);
+    ENDLFOREACH;
     indent -= INDSZ;
-}
-
-void print_subprogram_head(struct ast_subhead *h, int indent) {
-    if (h == NULL) return;
-    char *kind = h->type == SUB_FUNCTION ?
-        "FUNCTION" : "PROCEDURE";
-    INDENT;
-    printf("%s `%s` WITH ARGS:\n", kind, h->name);
-    LFOREACH(struct ast_decls*, arg, h->args, print_decls(arg, indent+INDSZ););
-    INDENT;
-    puts("RETURNING:");
-    print_type(h->retty, indent+INDSZ);
 }
 
 void print_subprogram_decl(struct ast_subdecl *d, int indent) {
     if (d == NULL) return;
-    print_subprogram_head(d->head, indent);
+    print_type(d->head, indent);
 
     INDENT; puts("WITH SUBPROGRAMS:");
-    LFOREACH(struct ast_subdecl *, sub, d->subprogs, print_subprogram_decl(sub, indent+INDSZ));
+    LFOREACH(struct ast_subdecl *sub, d->subprogs)
+        print_subprogram_decl(sub, indent+INDSZ);
+    ENDLFOREACH;
 
     INDENT; puts("AND VARIABLES");
-    LFOREACH(struct ast_decls *, decl, d->decls, print_decls(decl, indent+INDSZ));
+    LFOREACH(struct ast_decls *decl, d->decls)
+        print_decls(decl, indent+INDSZ);
+    ENDLFOREACH;
 
     INDENT; puts("DOES:");
     print_stmt(d->body, indent+INDSZ);
@@ -232,14 +241,20 @@ void print_program(struct ast_program *p, int indent) {
 
     printf("PROGRAM `%s` WITH ARGS:\n", p->name);
     indent += INDSZ;
-    LFOREACH(char *, arg, p->args, INDENT; printf("`%s`\n", arg));
+    LFOREACH(char *arg, p->args)
+        INDENT; printf("`%s`\n", arg);
+    ENDLFOREACH;
     indent -= INDSZ;
 
     INDENT; puts("AND VARIABLES:");
-    LFOREACH(struct ast_decls *, var, p->decls, print_decls(var, indent+INDSZ));
+    LFOREACH(struct ast_decls *var, p->decls)
+        print_decls(var, indent+INDSZ);
+    ENDLFOREACH;
 
     INDENT; puts("AND SUBPROGRAMS:");
-    LFOREACH(struct ast_subdecl *, sub, p->subprogs, print_subprogram_decl(sub, indent+INDSZ));
+    LFOREACH(struct ast_subdecl *sub, p->subprogs)
+        print_subprogram_decl(sub, indent+INDSZ);
+    ENDLFOREACH;
 
     INDENT; puts("DOES:");
     print_stmt(p->body, indent+INDSZ);
@@ -278,7 +293,7 @@ void free_expr(struct ast_expr *e) {
             break;
 
         case EXPR_LIT:
-            free(e->lit);
+            D(e->lit);
             break;
 
         case EXPR_PATH:
@@ -298,7 +313,7 @@ void free_expr(struct ast_expr *e) {
             break;
     }
 
-    free(e);
+    D(e);
 }
 
 void free_stmt(struct ast_stmt *s) {
@@ -330,7 +345,7 @@ void free_stmt(struct ast_stmt *s) {
             break;
 
         case STMT_FOR:
-            free(s->foor.id);
+            D(s->foor.id);
             free_expr(s->foor.start);
             free_expr(s->foor.end);
             free_stmt(s->foor.body);
@@ -340,7 +355,7 @@ void free_stmt(struct ast_stmt *s) {
             fprintf(stderr, "unrecognized stmt node...\n");
             break;
     }
-    free(s);
+    D(s);
 }
 
 void free_type(struct ast_type *t) {
@@ -353,9 +368,9 @@ void free_type(struct ast_type *t) {
             break;
 
         case TYPE_ARRAY:
-            free(t->array.lower);
-            free(t->array.upper);
-            free_type(t->array.elts);
+            D(t->array.lower);
+            D(t->array.upper);
+            free_type(t->array.elt_type);
             break;
 
         case TYPE_POINTER:
@@ -363,6 +378,8 @@ void free_type(struct ast_type *t) {
             break;
 
         case TYPE_FUNCTION:
+            free_type(t->func.retty);
+            list_free(t->func.args);
             break;
 
         case TYPE_RECORD:
@@ -370,7 +387,7 @@ void free_type(struct ast_type *t) {
             break;
 
         case TYPE_REF:
-            free(t->ref);
+            D(t->ref);
             break;
 
         default:
@@ -378,65 +395,58 @@ void free_type(struct ast_type *t) {
             break;
     }
 
-    free(t);
+    D(t);
 }
 
 void free_decls(struct ast_decls *d) {
     if (d == NULL) return;
     free_type(d->type);
     list_free(d->names);
-    free(d);
-}
-
-void free_subprogram_head(struct ast_subhead *h) {
-    if (h == NULL) return;
-    free(h->name);
-    list_free(h->args);
-    free_type(h->retty);
-    free(h);
+    D(d);
 }
 
 void free_subprogram_decl(struct ast_subdecl *d) {
     if (d == NULL) return;
-    free_subprogram_head(d->head);
+    free_type(d->head);
 
     list_free(d->subprogs);
     list_free(d->decls);
     list_free(d->types);
     free_stmt(d->body);
-    free(d);
+    D(d->name);
+    D(d);
 }
 
 void free_path(struct ast_path *p) {
     if (p == NULL) return;
     list_free(p->components);
-    free(p);
+    D(p);
 }
 
 void free_program(struct ast_program *p) {
     if (p == NULL) return;
-    free(p->name);
+    D(p->name);
     list_free(p->args);
     list_free(p->decls);
     list_free(p->types);
     list_free(p->subprogs);
     free_stmt(p->body);
-    free(p);
+    D(p);
 }
 
 void free_type_decl(struct ast_type_decl *t) {
     if (t == NULL) return;
 
-    free(t->name);
+    D(t->name);
     free_type(t->type);
-    free(t);
+    D(t);
 }
 
 void free_record_field(struct ast_record_field *f) {
     if (f == NULL) return;
-    free(f->name);
+    D(f->name);
     free_type(f->type);
-    free(f);
+    D(f);
 }
 
 /* constructors */
@@ -463,19 +473,11 @@ struct ast_program *ast_program(char *name, struct list *args, struct list *decl
     return p;
 }
 
-struct ast_subhead *ast_subprogram_head(enum subprogs t, char *name, struct list *args, struct ast_type *retty) {
-    struct ast_subhead *n = M(struct ast_subhead);
-    n->type = t;
-    n->name = name;
-    n->args = args;
-    n->retty = retty;
-    return n;
-}
-
-struct ast_subdecl *ast_subprogram_decl(struct ast_subhead *head, struct list *subprogs, struct list *types,
+struct ast_subdecl *ast_subprogram_decl(struct ast_type *sig, char *name, struct list *subprogs, struct list *types,
         struct list *decls, struct ast_stmt *body) {
     struct ast_subdecl *n = M(struct ast_subdecl);
-    n->head = head;
+    n->head = sig;
+    n->name = name;
     n->decls = decls;
     n->subprogs = subprogs;
     n->types = types;
@@ -528,7 +530,7 @@ struct ast_expr *ast_expr(enum exprs tag, ...) {
             break;
         default:
             fprintf(stderr, "unknown expr type...");
-            free(e);
+            D(e);
             va_end(args);
             return NULL;
     }
@@ -571,7 +573,7 @@ struct ast_stmt *ast_stmt(enum stmts tag, ...) {
             break;
         default:
             fprintf(stderr, "unkwown stmt type...\n");
-            free(s);
+            D(s);
             va_end(args);
             return NULL;
     }
@@ -590,14 +592,15 @@ struct ast_type *ast_type(enum types tag, ...) {
         case TYPE_ARRAY:
             t->array.lower = va_arg(args, char *);
             t->array.upper = va_arg(args, char *);
-            t->array.elts = va_arg(args, struct ast_type *);
+            t->array.elt_type = va_arg(args, struct ast_type *);
             break;
         case TYPE_POINTER:
             t->pointer = va_arg(args, struct ast_type *);
             break;
         case TYPE_FUNCTION:
-            fprintf(stderr, "function types NYI\n");
-            abort();
+            t->func.type = va_arg(args, enum subprogs);
+            t->func.args = va_arg(args, struct list *);
+            t->func.retty = va_arg(args, struct ast_type *);
             break;
         case TYPE_RECORD:
             t->record = va_arg(args, struct list *);
@@ -610,7 +613,7 @@ struct ast_type *ast_type(enum types tag, ...) {
             break;
         default:
             fprintf(stderr, "unkwown type type...\n");
-            free(t);
+            D(t);
             va_end(args);
             return NULL;
     }

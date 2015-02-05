@@ -48,7 +48,7 @@ static void list_free_backward(struct node *a, void(*dtor)(void*)) {
     if (!a) return;
     struct node *p = a->prev;
     if (a->elt) dtor(a->elt);
-    free(a);
+    D(a);
     list_free_backward(p, dtor);
 }
 
@@ -56,7 +56,7 @@ static void list_free_forward(struct node *a, void(*dtor)(void*)) {
     if (!a) return;
     struct node *p = a->next;
     if (a->elt) dtor(a->elt);
-    free(a);
+    D(a);
     list_free_forward(p, dtor);
 }
 
@@ -65,7 +65,7 @@ void list_free(struct list *a) {
     list_free_backward(a->inner.prev, a->dtor);
     list_free_forward(a->inner.next, a->dtor);
     a->dtor(a->inner.elt);
-    free(a);
+    D(a);
 }
 
 void list_add(struct list *a, void *elt) {
@@ -77,50 +77,58 @@ void list_add(struct list *a, void *elt) {
     a->last = new;
 }
 
-charvec *charvec_new() {
-    charvec *temp = calloc(1, sizeof(charvec));
-    if (temp == NULL) abort();
-    char *data = calloc(8, 1);
-    if (data == NULL) abort();
+void *list_pop(struct list *a) {
+    if (!a || !a->last) return NULL;
+    void *last_elt = a->last->elt;
+    struct node *last = a->last;
+    a->last = last->prev;
+    a->last->next = NULL;
+    D(last);
+    return last_elt;
+}
+
+void *list_last(struct list *a) {
+    if (!a || !a->last) return NULL;
+    return a->last->elt;
+}
+
+struct ptrvec *ptrvec_wcap(size_t cap, FREE_FUNC dtor) {
+    struct ptrvec *temp = calloc(1, sizeof(struct ptrvec));
+    if (!temp) abort();
+    void *data = calloc(cap, sizeof(void *));
+    if (!data) abort();
     temp->length = 0;
-    temp->capacity = 8;
+    temp->capacity = cap;
     temp->data = data;
+    temp->dtor = dtor;
     return temp;
 }
 
-static void charvec_reserve(charvec *vec, size_t len) {
-    if (len > vec->capacity) return;
-    if (vec->length < vec->capacity) {
-        // pass
+static void ptrvec_reserve(struct ptrvec *vec, size_t len) {
+    // wasteful. oh well.
+    if (len < vec->capacity) {
+        return;
     } else {
         vec->capacity *= 2;
-        vec->data = realloc(vec->data, vec->capacity);
-        if (vec->data == NULL) abort();
+        vec->data = realloc(vec->data, vec->capacity * sizeof(void *));
+        if (!vec->data) abort();
     }
 }
 
-void charvec_free(charvec *vec) {
-    if (vec) {
-        free(vec->data);
-        free(vec);
+size_t ptrvec_push(struct ptrvec *vec, void *elem) {
+    size_t idx = vec->length++;
+    ptrvec_reserve(vec, vec->length);
+    vec->data[idx] = elem;
+    return idx;
+}
+
+void ptrvec_free(struct ptrvec *vec) {
+    if (!vec) return;
+    for (int i = 0; i < vec->length; i++) {
+        vec->dtor(vec->data[i]);
     }
-}
-
-void charvec_concat(charvec *source, charvec *dest) {
-    charvec_reserve(source, source->length + dest->length);
-    memcpy(source->data + source->length, dest->data, dest->length);
-}
-
-void charvec_push_all(charvec *dest, const char *source, size_t len) {
-    charvec_reserve(dest, dest->length + len);
-    memcpy(dest->data + dest->length, source, len);
-}
-
-charvec *charvec_from_cstr(const char *str) {
-    charvec *res = charvec_new();
-    charvec_reserve(res, strlen(str));
-    memcpy(res->data, str, strlen(str));
-    return res;
+    D(vec->data);
+    D(vec);
 }
 
 struct hash_table *hash_new(size_t num_buckets, HASH_FUNC hash,
@@ -147,16 +155,23 @@ struct bucket_entry {
 
 void *hash_lookup(struct hash_table *tab, void *key) {
     struct list *bucket = tab->buckets[HASH];
-    LFOREACH(struct bucket_entry *, ent, bucket, if (tab->comp(key, ent->key)) { return ent->val; });
+    LFOREACH(struct bucket_entry *ent, bucket)
+        if (tab->comp(key, ent->key)) { return ent->val; }
+    ENDLFOREACH;
     // sorry boss!
-    return NULL;
+    return (void *)-1;
 }
 
 void hash_insert(struct hash_table *tab, void *key, void *val) {
     void **elt = NULL;
     struct list *bucket = tab->buckets[HASH];
     // check if it's already in the table
-    LFOREACH(struct bucket_entry *, ent, bucket, tab->comp(key, ent->key) ? elt = ent->val : NULL);
+    LFOREACH(struct bucket_entry *ent, bucket)
+        if (tab->comp(key, ent->key)) {
+            elt = ent->val;
+        }
+    ENDLFOREACH;
+
     if (elt != NULL) {
         tab->val_dtor(*elt);
         *elt = val;
@@ -171,13 +186,14 @@ void hash_insert(struct hash_table *tab, void *key, void *val) {
 
 void hash_free(struct hash_table *tab) {
     for (int i = 0; i < tab->num_buckets; i++) {
-        LFOREACH(struct bucket_entry *, ent, tab->buckets[i],
-                tab->key_dtor(ent->key);
-                tab->val_dtor(ent->val););
+        LFOREACH(struct bucket_entry *ent, tab->buckets[i])
+            tab->key_dtor(ent->key);
+            tab->val_dtor(ent->val);
+        ENDLFOREACH;
         list_free(tab->buckets[i]);
     }
-    free(tab->buckets);
-    free(tab);
+    D(tab->buckets);
+    D(tab);
 }
 
 uint64_t hashpjw(char *string, size_t size) {

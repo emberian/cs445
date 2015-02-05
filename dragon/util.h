@@ -6,16 +6,27 @@
 
 #define M(ty) ((ty*)malloc(sizeof(ty)))
 #define D(ptr) (free(ptr))
+#define YOLO (void*)
+#define CB (void (*)(void*))
 
 #define L(dtor, xs...) list_many(dtor, xs, NULL)
-#define LFOREACH(ty, name, lname, exprs...) do {\
+#define LFOREACH(decl, lname) do {\
     for (struct node *temp = &lname->inner; temp; temp = temp->next) {\
         if (!temp->elt) continue;\
-        ty name = temp->elt;\
-        exprs;\
-    }\
-} while(0)
+        decl = temp->elt;\
 
+#define ENDLFOREACH } } while (0)
+
+#define LFOREACHREV(decl, lname) do {\
+    for (struct node *temp = lname->last; temp; temp = temp->prev) {\
+        if (!temp->elt) continue;\
+        decl = temp->elt;\
+
+#define ENDLFOREACHREV } } while(0)
+
+typedef uint64_t (*HASH_FUNC)(void *);
+typedef bool (*COMPARE_FUNC)(void *, void *);
+typedef void (*FREE_FUNC)(void *);
 
 struct node {
     void *elt;
@@ -25,7 +36,7 @@ struct node {
 struct list {
     struct node inner;
     struct node *last;
-    void (*dtor)(void*);
+    FREE_FUNC dtor;
 };
 
 struct list *list_new(void *, void (*)(void*));
@@ -34,23 +45,19 @@ struct list *list_empty(void (*)(void*));
 void list_append(struct node *, struct node *);
 void list_add(struct list *, void *);
 void list_free(struct list *);
+void *list_pop(struct list *);
+void *list_last(struct list *);
 
-typedef struct {
+struct ptrvec {
     size_t length;
     size_t capacity;
-    char *data;
-} charvec;
+    void **data;
+    FREE_FUNC dtor;
+};
 
-void charvec_concat(charvec *, charvec *);
-void charvec_free(charvec *);
-void charvec_push(charvec *, char);
-void charvec_push_all(charvec *, const char *, size_t);
-charvec *charvec_new();
-charvec *charvec_from_cstr(const char *);
-
-typedef uint64_t (*HASH_FUNC)(void *);
-typedef bool (*COMPARE_FUNC)(void *, void *);
-typedef void (*FREE_FUNC)(void *);
+struct ptrvec *ptrvec_wcap(size_t, FREE_FUNC);
+size_t ptrvec_push(struct ptrvec *, void *);
+void ptrvec_free(struct ptrvec *);
 
 /* Super simple, crappy chained hash table. */
 struct hash_table {
