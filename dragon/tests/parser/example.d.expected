@@ -41,10 +41,10 @@ AND SUBPROGRAMS:
             RIGHT:
               b
 DOES:
-  APPLY `read` WITH:
+  APPLY `scanline` WITH:
     x
     y
-  APPLY `write` WITH:
+  APPLY `putall` WITH:
     APPLY `gcd`
     TO ARGS:
       x

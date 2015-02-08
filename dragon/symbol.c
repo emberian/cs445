@@ -3,24 +3,6 @@
 #include <assert.h>
 #include <stdarg.h>
 
-#define INTEGER_TYPE_IDX 0
-#define REAL_TYPE_IDX 1
-#define STRING_TYPE_IDX 2
-#define BOOLEAN_TYPE_IDX 3
-#define CHAR_TYPE_IDX 4
-
-static uint64_t hash_stab_scope(struct stab_scope *sc) {
-    return hashpjw((char *)sc, sizeof(sc));
-}
-
-static bool ptr_equality(struct stab_scope *s1, struct stab_scope *s2) {
-    return s1 == s2;
-}
-
-static void dummy_free(void *unused) {
-    return;
-}
-
 static bool streq(char *a, char *b) {
     return strcmp(a, b) == 0;
 }
@@ -52,7 +34,7 @@ static void free_stab_type(struct stab_type *t) {
             break;
 
         case TYPE_FUNCTION:
-            list_free(t->ty.func.args);
+            if (t->magic == 0) { list_free(t->ty.func.args); }
             break;
 
         default:
@@ -61,16 +43,22 @@ static void free_stab_type(struct stab_type *t) {
     D(t);
 }
 
-static void (*free_stab_func)(struct stab_var *v) = free_stab_var;
-
 static struct stab_scope *stab_scope_new() {
     struct stab_scope *sc = M(struct stab_scope);
     sc->vars = hash_new(1 << 8, (HASH_FUNC) hash_string, (COMPARE_FUNC) streq,
-            (FREE_FUNC) free, (FREE_FUNC) dummy_free);
+            (FREE_FUNC) dummy_free, (FREE_FUNC) dummy_free);
     sc->funcs = hash_new(1 << 8, (HASH_FUNC) hash_string, (COMPARE_FUNC) streq,
-            (FREE_FUNC) free, (FREE_FUNC) dummy_free);
+            (FREE_FUNC) dummy_free, (FREE_FUNC) dummy_free);
     sc->types = hash_new(1 << 8, (HASH_FUNC) hash_string, (COMPARE_FUNC) streq,
-            (FREE_FUNC) free, (FREE_FUNC) dummy_free);
+            (FREE_FUNC) dummy_free, (FREE_FUNC) dummy_free);
+    /*
+    sc->expr_ty_cache = hash_new(1 << 8, (HASH_FUNC) hash_expr,
+            (COMPARE_FUNC) ptreq, (FREE_FUNC) dummy_free,
+            (FREE_FUNC) dummy_free);
+    sc->path_ty_cache = hash_new(1 << 8, (HASH_FUNC) hash_path,
+            (COMPARE_FUNC) patheq, (FREE_FUNC) dummy_free,
+            (FREE_FUNC) dummy_free);
+    */
 
     return sc;
 }
@@ -80,34 +68,70 @@ struct stab *stab_new() {
     // the chain doesn't own the scopes, st->scopes does.
     s->chain = list_empty(CB dummy_free);
     s->vars = ptrvec_wcap(1 << 8, CB free_stab_var);
-    s->funcs = ptrvec_wcap(1 << 8, CB free_stab_func);
     s->types = ptrvec_wcap(1 << 8, CB free_stab_type);
-    s->scopes = hash_new(1 << 8, (HASH_FUNC) hash_stab_scope,
-                         (COMPARE_FUNC) ptr_equality,
-                         (FREE_FUNC) dummy_free,
-                         (FREE_FUNC) free_stab_scope);
+    s->scopes = ptrvec_wcap(1 << 8, CB free_stab_scope);
+
+    // int, real, str, bool, char, void
+    struct stab_resolved_type rt;
+    struct stab_type *t;
+
+    rt.tag = TYPE_INTEGER;
+    t = M(struct stab_type);
+    // XHAZARD
+    t->name = strdup("integer"); t->defn = NULL; t->size = 4; t->align = 4; t->ty = rt;
+    ptrvec_push(s->types, t);
+
+    rt.tag = TYPE_REAL;
+    t = M(struct stab_type);
+    // XHAZARD
+    t->name = strdup("real"); t->defn = NULL; t->size = 4; t->align = 4; t->ty = rt;
+    ptrvec_push(s->types, t);
+
+    rt.tag = TYPE_STRING;
+    t = M(struct stab_type);
+    // XHAZARD
+    t->name = strdup("string"); t->defn = NULL; t->size = 4; t->align = 4; t->ty = rt;
+    ptrvec_push(s->types, t);
+
+    rt.tag = TYPE_BOOLEAN;
+    t = M(struct stab_type);
+    // XHAZARD
+    t->name = strdup("boolean"); t->defn = NULL; t->size = 4; t->align = 4; t->ty = rt;
+    ptrvec_push(s->types, t);
+
+    rt.tag = TYPE_CHAR;
+    t = M(struct stab_type);
+    // XHAZARD
+    t->name = strdup("char"); t->defn = NULL; t->size = 4; t->align = 4; t->ty = rt;
+    ptrvec_push(s->types, t);
+
+    rt.tag = TYPE_VOID;
+    t = M(struct stab_type);
+    // XHAZARD
+    t->name = strdup("<void>"); t->defn = NULL; t->size = 4; t->align = 4; t->ty = rt;
+    ptrvec_push(s->types, t);
+
     return s;
 }
 
 void stab_free(struct stab *st) {
-    ptrvec_free(st->vars);
-    ptrvec_free(st->funcs);
-    ptrvec_free(st->types);
-    hash_free(st->scopes);
     list_free(st->chain);
+    ptrvec_free(st->scopes);
+    ptrvec_free(st->vars);
+    ptrvec_free(st->types);
     D(st);
 }
 
-void stab_enter(struct stab *st, intptr_t cur_id) {
+void stab_enter(struct stab *st) {
     // create empty stab_scope, push onto the chain
     struct stab_scope *sc = stab_scope_new();
     list_add(st->chain, sc);
-    hash_insert(st->scopes, YOLO cur_id, YOLO sc);
+    ptrvec_push(st->scopes, YOLO sc);
     return;
 }
 
 void stab_leave(struct stab *st) {
-    free_stab_scope((struct stab_scope *)list_pop(st->chain));
+    list_pop(st->chain);
     return;
 }
 
@@ -125,7 +149,35 @@ size_t stab_resolve_type_name(struct stab *st, char *name) {
     return RESOLVE_FAILURE;
 }
 
-static size_t stab_add_var(struct stab *st, char *name, size_t type, YYLTYPE *span) {
+size_t stab_resolve_func(struct stab *st, char *name) {
+    LFOREACHREV(struct stab_scope *sc, st->chain)
+        size_t id = (size_t) hash_lookup(sc->funcs, YOLO name);
+        if (id == -1) {
+            continue;
+        } else {
+            return id;
+        }
+    ENDLFOREACHREV;
+
+    // didn't find anything
+    return RESOLVE_FAILURE;
+}
+
+size_t stab_resolve_var(struct stab *st, char *name) {
+    LFOREACHREV(struct stab_scope *sc, st->chain)
+        size_t id = (size_t) hash_lookup(sc->vars, YOLO name);
+        if (id == -1) {
+            continue;
+        } else {
+            return id;
+        }
+    ENDLFOREACHREV;
+
+    // didn't find anything
+    return RESOLVE_FAILURE;
+}
+
+size_t stab_add_var(struct stab *st, char *name, size_t type, YYLTYPE *span) {
     struct stab_var *v = M(struct stab_var);
     v->type = type;
     v->address_taken = false;
@@ -155,6 +207,7 @@ static size_t stab_resolve_complex_type(struct stab *st, char *name, struct ast_
     t->defn = NULL;
     t->name = name;
     t->ty.tag = ty->tag;
+    t->magic = 0;
 
     switch (ty->tag) {
         case TYPE_POINTER:
@@ -167,6 +220,7 @@ static size_t stab_resolve_complex_type(struct stab *st, char *name, struct ast_
             t->ty.record.fields = list_empty(CB free_stab_record_field);
 
             LFOREACH(struct ast_record_field *field, ty->record)
+                // todo: check that field name is unique
                 list_add(t->ty.record.fields, YOLO stab_record_field(field->name, stab_resolve_type(st, strdup(field->name), field->type)));
             ENDLFOREACH;
 
@@ -186,10 +240,11 @@ static size_t stab_resolve_complex_type(struct stab *st, char *name, struct ast_
         case TYPE_FUNCTION:
             t->ty.func.type = ty->func.type;
             t->ty.func.retty = stab_resolve_type(st, strdup("<func ret>"), ty->func.retty);
+            t->ty.func.args = list_empty(CB dummy_free);
 
             LFOREACH(struct ast_decls *decl, ty->func.args)
                 LFOREACH(char *name, decl->names)
-                    size_t id = stab_resolve_type(st, strdup("<func arg>"), decl->type);
+                    size_t id = stab_resolve_type(st, strdup(name), decl->type);
                     list_add(t->ty.func.args, YOLO stab_add_var(st, strdup(name), id, NULL));
                 ENDLFOREACH;
             ENDLFOREACH;
@@ -199,7 +254,7 @@ static size_t stab_resolve_complex_type(struct stab *st, char *name, struct ast_
             break;
 
         default:
-            fprintf(stderr, "resolve_complex_type given simple type!\n");
+            DIAG("resolve_complex_type given simple type!\n");
             abort();
             return -1;
     }
@@ -208,20 +263,33 @@ static size_t stab_resolve_complex_type(struct stab *st, char *name, struct ast_
 }
 
 size_t stab_resolve_type(struct stab *st, char *name, struct ast_type *ty) {
+    if (ty == NULL) {
+        free(name);
+        return VOID_TYPE_IDX;
+    }
+
     switch (ty->tag) {
         case TYPE_REF:
+            free(name);
             return stab_resolve_type_name(st, ty->ref);
-
         case TYPE_INTEGER:
+            free(name);
             return INTEGER_TYPE_IDX;
         case TYPE_REAL:
+            free(name);
             return REAL_TYPE_IDX;
         case TYPE_STRING:
+            free(name);
             return STRING_TYPE_IDX;
         case TYPE_BOOLEAN:
+            free(name);
             return BOOLEAN_TYPE_IDX;
         case TYPE_CHAR:
+            free(name);
             return CHAR_TYPE_IDX;
+        case TYPE_VOID:
+            free(name);
+            return VOID_TYPE_IDX;
 
         case TYPE_POINTER:
         case TYPE_RECORD:
@@ -230,8 +298,8 @@ size_t stab_resolve_type(struct stab *st, char *name, struct ast_type *ty) {
             return stab_resolve_complex_type(st, name, ty);
 
         default:
+            DIAG("bad type to resolve!\n");
             abort();
-            return RESOLVE_FAILURE;
     }
 }
 
@@ -243,7 +311,7 @@ void stab_add_decls(struct stab *st, struct ast_decls *decls) {
         if (stab_has_local_var(st, (char *)var)) {
             span_err("%s is already defined", NULL, var);
         } else {
-            stab_add_var(st, var, type, NULL);
+            stab_add_var(st, strdup(var), type, NULL);
         }
     ENDLFOREACH;
     //? stab_abort(st);
@@ -255,10 +323,24 @@ void stab_add_func(struct stab *st, char *name, struct ast_type *sig) {
     if (stab_has_local_func(st, name)) {
         span_err("%s is already defined", NULL, name);
     } else {
-        size_t type = stab_resolve_type(st, name, sig);
+        size_t type = stab_resolve_complex_type(st, name, sig);
         hash_insert(((struct stab_scope *)list_last(st->chain))->funcs, YOLO name, YOLO type);
     }
     //? stab_abort(st);
+    return;
+}
+
+void stab_add_magic_func(struct stab *st, int which) {
+    char *name = strdup(which == MAGIC_PUTALL ? "putall" : "scanline");
+    struct stab_type *t = M(struct stab_type);
+    t->defn = NULL;
+    t->name = name;
+    t->ty.tag = TYPE_FUNCTION;
+    t->magic = which;
+
+    size_t type = ptrvec_push(st->types, t);
+    hash_insert(((struct stab_scope *)list_last(st->chain))->funcs, YOLO name, YOLO type);
+
     return;
 }
 
@@ -287,4 +369,76 @@ bool stab_has_local_var(struct stab *st, char *name) {
 bool stab_has_local_func(struct stab *st, char *name) {
     size_t id = (size_t) hash_lookup(((struct stab_scope *)list_last(st->chain))->funcs, YOLO name);
     return id != RESOLVE_FAILURE;
+}
+
+bool stab_types_eq(struct stab *st, size_t a, size_t b) {
+    // todo: when cache in place, just check a == b
+    struct stab_type *at = STAB_TYPE(st, a), *bt = STAB_TYPE(st, b);
+    if (at->ty.tag != bt->ty.tag) {
+        return false;
+    } else {
+        switch (at->ty.tag) {
+            case TYPE_BOOLEAN:
+            case TYPE_CHAR:
+            case TYPE_INTEGER:
+            case TYPE_REAL:
+            case TYPE_STRING:
+                return true;
+            case TYPE_ARRAY:
+                return (at->ty.array.upper == bt->ty.array.upper
+                    &&  at->ty.array.lower == bt->ty.array.lower
+                    &&  at->ty.array.elt_type == bt->ty.array.elt_type);
+            case TYPE_FUNCTION:
+            case TYPE_RECORD:
+                return a == b;
+            case TYPE_POINTER:
+                return stab_types_eq(st, at->ty.pointer, bt->ty.pointer);
+
+            case TYPE_REF:
+            default:
+                DIAG("bad type for comparison!\n");
+                abort();
+        }
+    }
+}
+
+void stab_print_type(struct stab *st, size_t t, int indent) {
+    struct stab_type *ty = STAB_TYPE(st, t);
+    INDENT; DEBUG("<id %ld> ", t);
+    INDENT;
+    switch (ty->ty.tag) {
+        case TYPE_BOOLEAN:
+            DIAG("boolean\n");
+            break;
+        case TYPE_CHAR:
+            DIAG("char\n");
+            break;
+        case TYPE_INTEGER:
+            DIAG("integer\n");
+            break;
+        case TYPE_REAL:
+            DIAG("real\n");
+            break;
+        case TYPE_STRING:
+            DIAG("string\n");
+            break;
+        case TYPE_ARRAY:
+            DIAG("array `%s`\n", ty->name);
+            break;
+        case TYPE_FUNCTION:
+            DIAG("%s %s\n", ty->ty.func.type == SUB_PROCEDURE ? "procedure" : "function", ty->name);
+            break;
+        case TYPE_RECORD:
+            DIAG("record `%s`\n", ty->name);
+            break;
+        case TYPE_POINTER:
+            DIAG("pointer to `%s`\n", ty->name);
+            break;
+        case TYPE_VOID:
+            DIAG("void\n");
+            break;
+        case TYPE_REF:
+        default:
+            abort();
+    }
 }

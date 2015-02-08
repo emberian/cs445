@@ -6,25 +6,9 @@
 #include "util.h"
 #include "ast.h"
 
-struct list *list_many(void (*dtor)(void*), ...) {
-    va_list args;
-    struct list *l = list_empty(dtor);
-    void *elt;
-
-    va_start(args, dtor);
-
-    while ((elt = va_arg(args, void*))) {
-        list_add(l, elt);
-    }
-
-    va_end(args);
-
-    return l;
-}
-
 struct list *list_new(void *data, void (*dtor)(void*)) {
     struct list *l = list_empty(dtor);
-    l->inner.elt = data;
+    list_add(l, data);
     return l;
 }
 
@@ -35,6 +19,7 @@ struct list *list_empty(void (*dtor)(void*)) {
     l->inner.elt = NULL;
     l->last = &l->inner;
     l->dtor = dtor;
+    l->length = 0;
     return l;
 }
 
@@ -70,12 +55,18 @@ void list_free(struct list *a) {
 }
 
 void list_add(struct list *a, void *elt) {
-    struct node *new = M(struct node);
-    new->elt = elt;
-    new->prev = NULL;
-    new->next = NULL;
-    list_append(a->last, new);
-    a->last = new;
+    if (a->length == 0) {
+        a->inner.elt = elt;
+        a->length++;
+    } else {
+        struct node *new = M(struct node);
+        new->elt = elt;
+        new->prev = NULL;
+        new->next = NULL;
+        a->length++;
+        list_append(a->last, new);
+        a->last = new;
+    }
 }
 
 void *list_pop(struct list *a) {
@@ -85,6 +76,7 @@ void *list_pop(struct list *a) {
     a->last = last->prev;
     a->last->next = NULL;
     D(last);
+    a->length--;
     return last_elt;
 }
 
@@ -186,12 +178,12 @@ void hash_insert(struct hash_table *tab, void *key, void *val) {
 }
 
 void hash_free(struct hash_table *tab) {
-    for (int i = 0; i < tab->num_buckets; i++) {
-        LFOREACH(struct bucket_entry *ent, tab->buckets[i])
+    for (int j = 0; j < tab->num_buckets; j++) {
+        LFOREACH(struct bucket_entry *ent, tab->buckets[j])
             tab->key_dtor(ent->key);
             tab->val_dtor(ent->val);
         ENDLFOREACH;
-        list_free(tab->buckets[i]);
+        list_free(tab->buckets[j]);
     }
     D(tab->buckets);
     D(tab);
@@ -213,4 +205,17 @@ void span_err(char *fmt, YYLTYPE *loc, ...) {
     va_list args;
     va_start(args, loc);
     vfprintf(stderr, fmt, args);
+    fputc('\n', stderr);
+    abort();
+}
+
+void span_diag(char *fmt, YYLTYPE *loc, ...) {
+    va_list args;
+    va_start(args, loc);
+    vfprintf(stderr, fmt, args);
+    fputc('\n', stderr);
+}
+
+void dummy_free(void *unused) {
+    return;
 }

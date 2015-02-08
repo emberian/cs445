@@ -2,6 +2,7 @@
 #define _UTIL_H
 #include <stdlib.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <stdbool.h>
 
 #define M(ty) ((ty*)malloc(sizeof(ty)))
@@ -9,13 +10,37 @@
 #define YOLO (void*)
 #define CB (void (*)(void*))
 
-#define L(dtor, xs...) list_many(dtor, xs, NULL)
+// HAZARD: ## removing preceeding comma is a gcc ext
+#ifndef NDEBUG
+#define DEBUG(f, ...) fprintf(stderr, f, ##__VA_ARGS__)
+#else
+#define DEBUG(f, ...) ;
+#endif
+
+#define DIAG(f, ...) fprintf(stderr, f, ##__VA_ARGS__)
+#define ERR(f, ...) fprintf(stderr, f, ##__VA_ARGS__); abort();
+
+// number of spaces per indentation level
+#define INDSZ 2
+
+#define INDENT INDENTE(indent)
+#define INDENTE(indent) do { for (int i = 0; i < indent; i++) putchar(' '); } while(0)
+
 #define LFOREACH(decl, lname) do {\
-    for (struct node *temp = &lname->inner; temp; temp = temp->next) {\
-        if (!temp->elt) continue;\
+    struct node *temp = &lname->inner;\
+    for (int __ti = 0; __ti < lname->length; __ti++) {\
         decl = temp->elt;\
 
-#define ENDLFOREACH } } while (0)
+#define ENDLFOREACH temp = temp->next; } } while (0)
+
+#define LFOREACH2(decl1, decl2, lname1, lname2) do {\
+    if (lname1->length == 0 || lname2->length == 0) break;\
+    for (struct node *temp1 = &lname1->inner, *temp2 = &lname2->inner; temp1 && temp2;\
+            temp1 = temp1->next, temp2 = temp2->next) {\
+        decl1 = temp1->elt;\
+        decl2 = temp2->elt;\
+
+#define ENDLFOREACH2 } } while(0)
 
 #define LFOREACHREV(decl, lname) do {\
     for (struct node *temp = lname->last; temp; temp = temp->prev) {\
@@ -36,11 +61,11 @@ struct node {
 struct list {
     struct node inner;
     struct node *last;
+    size_t length;
     FREE_FUNC dtor;
 };
 
 struct list *list_new(void *, void (*)(void*));
-struct list *list_many(void (*)(void*), ...);
 struct list *list_empty(void (*)(void*));
 void list_append(struct node *, struct node *);
 void list_add(struct list *, void *);
@@ -80,5 +105,7 @@ uint64_t hashpjw(char *, size_t);
 struct YYLTYPE;
 
 void span_err(char *fmt, struct YYLTYPE *loc, ...);
+void span_diag(char *fmt, struct YYLTYPE *loc, ...);
+void dummy_free(void *);
 
 #endif

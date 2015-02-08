@@ -20,13 +20,13 @@ void test_list_append() {
         list_add(l, a);
     }
 
-    int i = 0;
+    int j = 0;
     LFOREACH(int *e, l)
-        assert(*e == i++);
+        assert(*e == j++);
     ENDLFOREACH;
 
     LFOREACHREV(int *e, l)
-        assert(*e == --i);
+        assert(*e == --j);
     ENDLFOREACHREV;
 
     list_free(l);

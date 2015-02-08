@@ -3,11 +3,6 @@
 #include "util.h"
 #include "ast.h"
 
-// number of spaces per indentation level
-#define INDSZ 2
-
-#define INDENT do { for (int i = 0; i < indent; i++) putchar(' '); } while(0)
-
 /* pretty printers */
 
 void print_expr(struct ast_expr *e, int indent) {
@@ -649,4 +644,18 @@ struct ast_record_field *ast_record_field(char *name, struct ast_type *type) {
     f->name = name;
     f->type = type;
     return f;
+}
+
+bool is_relop(int op) {
+    switch (op) {
+        case NEQ:
+        case LE:
+        case GE:
+        case '<':
+        case '>':
+        case '=':
+            return true;
+        default:
+            return false;
+    }
 }

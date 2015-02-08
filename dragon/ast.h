@@ -40,6 +40,7 @@ enum types {
     TYPE_RECORD,
     TYPE_REF,
     TYPE_STRING,
+    TYPE_VOID,
 };
 
 struct ast_type {
@@ -188,5 +189,7 @@ void free_path            ( struct ast_path *);
 void free_program         ( struct ast_program *);
 void free_type_decl       ( struct ast_type_decl *);
 void free_record_field    ( struct ast_record_field *);
+
+bool is_relop(int);
 
 #endif
