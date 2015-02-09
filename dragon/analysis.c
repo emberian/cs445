@@ -58,6 +58,9 @@ size_t type_of_path(acx *acx, struct ast_path *p) {
     size_t t;
     struct stab_resolved_type *ty;
     size_t idx = stab_resolve_var(acx->st, c->inner.elt);
+    if (!stab_has_local_var(st, c->inner.elt)) {
+        STAB_VAR(st, idx)->captured = true;
+    }
     CHKRESV(idx, c->inner.elt);
     t = STAB_VAR(st, idx)->type;
     ty = &STAB_TYPE(st, t)->ty;

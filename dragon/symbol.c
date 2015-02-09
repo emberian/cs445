@@ -180,7 +180,6 @@ size_t stab_resolve_var(struct stab *st, char *name) {
 size_t stab_add_var(struct stab *st, char *name, size_t type, YYLTYPE *span) {
     struct stab_var *v = M(struct stab_var);
     v->type = type;
-    v->address_taken = false;
     v->defn = span;
     v->name = name;
 

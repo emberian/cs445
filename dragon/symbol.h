@@ -46,7 +46,6 @@ struct stab_var {
     size_t type;
     char *name;
     YYLTYPE *defn; // todo: annotate all AST nodes with a span...
-    bool address_taken; // whether this needs to be a cell or can be a register
     bool captured; // whether this variable needs to be lifted to a closure environment
 };
 
