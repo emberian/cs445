@@ -82,6 +82,7 @@ struct ptrvec {
 
 struct ptrvec *ptrvec_wcap(size_t, FREE_FUNC);
 size_t ptrvec_push(struct ptrvec *, void *);
+void *ptrvec_last(struct ptrvec *);
 void ptrvec_free(struct ptrvec *);
 
 /* Super simple, crappy chained hash table. */
@@ -93,6 +94,13 @@ struct hash_table {
     FREE_FUNC key_dtor, val_dtor;
     struct list **buckets;
 };
+
+#define HFOREACH(decl, hm) do { \
+    int __i; struct list *__bucket; \
+    for (__i = 0, __bucket = hm->buckets[0]; __i < hm->num_buckets; __i++, __bucket = hm->buckets[__i]) {\
+    LFOREACH(decl, __bucket)
+
+#define ENDHFOREACH ENDLFOREACH; } } while (0)
 
 struct hash_table *hash_new(size_t, HASH_FUNC, COMPARE_FUNC, FREE_FUNC, FREE_FUNC);
 void *hash_lookup(struct hash_table *, void *);

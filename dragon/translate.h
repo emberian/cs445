@@ -28,6 +28,11 @@ void free_ir(struct cir_prog *);
 void free_rec_layout(struct rec_layout *);
 struct rec_layout *compute_rec_layout(struct stab *, struct list *);
 
+
+struct tcx {
+
+};
+
 /*
  * Overall Design
  * ==============
@@ -63,57 +68,56 @@ struct rec_layout *compute_rec_layout(struct stab *, struct list *);
  */
 
 enum cir_op {
-    // return from the function.
+    // return A from the function.
     IRET,
-    // a conditional branch, "br A B C" reads "if C jump to BB B, else jump to
+    // a conditional branch, "br A B C" reads "if A jump to BB B, else jump to
     // BB C"
     IBR,
 
-    // C = A + B
+    // A + B
     IADD,
-    // C = A - B
+    // A - B
     ISUB,
-    // C = A * B
+    // A * B
     IMUL,
-    // C = A / B
+    // A / B
     IDIV,
-    // C = A % B
+    // A % B
     IMOD,
 
     // B = ~A
     INOT,
-    // C = A & B
+    // A & B
     IAND,
-    // C = A | B
+    // A | B
     IOR,
 
-    // C = load B bytes from A
+    // load B bytes from A
     ILD,
-    // store value in reg A to mem loc stored in B
+    // A <- B
     IST,
-    // B = space on stack for A bytes
+    // space on stack for A bytes
     IALLOC,
-    // C = A < B
+    // A < B
     ILT,
-    // C = A < B
+    // A < B
     ILE,
-    // C = A < B
+    // A < B
     IGT,
-    // C = A < B
+    // A < B
     IGE,
-    // C = A < B
+    // A < B
     IEQ,
-    // C = A < B
+    // A < B
     INE,
-    // B = A
-    ICP,
 
-    // C = PHI(a, b). Created by the SSAifier.
+    // PHI(a, b). Created by the SSAifier.
     IPHI,
 };
 
 enum operand_ty {
     OPER_ILIT,
+    OPER_BLIT,
     OPER_FLIT,
     OPER_REG,
     OPER_LABEL
@@ -123,6 +127,7 @@ struct operand {
     union {
         struct insn *reg;
         struct cir_bb *label;
+        bool blit;
         uint64_t ilit;
         double flit;
     };
@@ -157,8 +162,9 @@ struct cir_prog {
 };
 
 struct cir_prog *cir_prog();
-struct cir_prog *cir_func();
-struct cir_prog *cir_bb();
-struct insn *insn(enum cir_op, ...);
+struct cir_func *cfunc_new(struct list *);
+struct cir_bb *cir_bb();
+struct insn *insn_new(enum cir_op, ...);
+struct operand oper_new(enum operand_ty, ...);
 
 #endif

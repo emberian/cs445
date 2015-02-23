@@ -115,6 +115,10 @@ size_t ptrvec_push(struct ptrvec *vec, void *elem) {
     return idx;
 }
 
+void *ptrvec_last(struct ptrvec *vec) {
+    return vec->data[vec->length];
+}
+
 void ptrvec_free(struct ptrvec *vec) {
     if (!vec) return;
     for (int i = 0; i < vec->length; i++) {

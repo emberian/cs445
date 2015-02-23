@@ -78,31 +78,31 @@ struct stab *stab_new() {
     rt.tag = TYPE_INTEGER;
     t = M(struct stab_type);
     // XHAZARD
-    t->name = strdup("integer"); t->defn = NULL; t->size = 4; t->align = 4; t->ty = rt;
+    t->name = strdup("integer"); t->defn = NULL; t->size = 8; t->align = 8; t->ty = rt;
     ptrvec_push(s->types, t);
 
     rt.tag = TYPE_REAL;
     t = M(struct stab_type);
     // XHAZARD
-    t->name = strdup("real"); t->defn = NULL; t->size = 4; t->align = 4; t->ty = rt;
+    t->name = strdup("real"); t->defn = NULL; t->size = 8; t->align = 8; t->ty = rt;
     ptrvec_push(s->types, t);
 
     rt.tag = TYPE_STRING;
     t = M(struct stab_type);
     // XHAZARD
-    t->name = strdup("string"); t->defn = NULL; t->size = 4; t->align = 4; t->ty = rt;
+    t->name = strdup("string"); t->defn = NULL; t->size = ABI_POINTER_SIZE; t->align =ABI_POINTER_ALIGN; t->ty = rt;
     ptrvec_push(s->types, t);
 
     rt.tag = TYPE_BOOLEAN;
     t = M(struct stab_type);
     // XHAZARD
-    t->name = strdup("boolean"); t->defn = NULL; t->size = 4; t->align = 4; t->ty = rt;
+    t->name = strdup("boolean"); t->defn = NULL; t->size = 1; t->align = 1; t->ty = rt;
     ptrvec_push(s->types, t);
 
     rt.tag = TYPE_CHAR;
     t = M(struct stab_type);
     // XHAZARD
-    t->name = strdup("char"); t->defn = NULL; t->size = 4; t->align = 4; t->ty = rt;
+    t->name = strdup("char"); t->defn = NULL; t->size = 1; t->align = 1; t->ty = rt;
     ptrvec_push(s->types, t);
 
     rt.tag = TYPE_VOID;
@@ -182,6 +182,7 @@ size_t stab_add_var(struct stab *st, char *name, size_t type, YYLTYPE *span) {
     v->type = type;
     v->defn = span;
     v->name = name;
+    v->loc = insn_new(IALLOC, STAB_TYPE(st, type)->size);
 
     size_t id = ptrvec_push(st->vars, YOLO v);
     hash_insert(((struct stab_scope*)list_last(st->chain))->vars, YOLO name, YOLO id);
@@ -234,6 +235,7 @@ static size_t stab_resolve_complex_type(struct stab *st, char *name, struct ast_
             t->ty.array.lower = atoi(ty->array.lower);
             t->ty.array.upper = atoi(ty->array.upper);
             t->ty.array.elt_type = stab_resolve_type(st, strdup("<array elts>"), ty->array.elt_type);
+            t->size = STAB_TYPE(st, t->ty.array.elt_type)->size * (t->ty.array.upper - t->ty.array.lower);
             break;
 
         case TYPE_FUNCTION:
@@ -248,6 +250,8 @@ static size_t stab_resolve_complex_type(struct stab *st, char *name, struct ast_
                     list_add(t->ty.func.args, YOLO stab_add_var(st, strdup(name), id, NULL));
                 ENDLFOREACH;
             ENDLFOREACH;
+
+            t->cfunc = cfunc_new(t->ty.func.args);
 
             t->size = ABI_CLOSURE_SIZE; // XHAZARD
             t->align = ABI_CLOSURE_ALIGN; // XHAZARD

@@ -42,9 +42,12 @@ struct stab_scope {
     // struct hash_table *expr_ty_cache, *path_ty_cache;
 };
 
+struct insn;
+
 struct stab_var {
     size_t type;
     char *name;
+    struct insn *loc; // alloca containing this variable
     YYLTYPE *defn; // todo: annotate all AST nodes with a span...
     bool captured; // whether this variable needs to be lifted to a closure environment
 };
@@ -75,8 +78,11 @@ struct stab_record_field {
     size_t type;
 };
 
+struct cir_func;
+
 struct stab_type {
     struct stab_resolved_type ty;
+    struct cir_func *cfunc;
     char *name;
     YYLTYPE *defn; // todo
     uint64_t size, align;

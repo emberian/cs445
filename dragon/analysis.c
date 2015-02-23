@@ -4,12 +4,22 @@
 #include "symbol.h"
 #include "util.h"
 
+#define INSN(n, ...) (ptrvec_push(acx->current_bb->insns, insn_new(I ## n, __VA_ARGS__)), (struct insn*) ptrvec_last(acx->current_bb->insns))
+#define ILIT(n) (oper_new(OPER_ILIT, n))
+#define INSN_TRUE (oper_new(OPER_BLIT, true))
+
 typedef struct acx {
     struct stab *st;
     // rather than keeping a stack of these, just save what is needed when it
     // is needed and use the C stack.
     struct stab_type *current_func;
+    struct cir_bb *current_bb;
 } acx;
+
+struct resu {
+    size_t type;
+    struct insn *op;
+};
 
 void register_input(acx *acx, struct ast_program *prog) {
     struct ast_type *gl = ast_type(TYPE_FUNCTION, SUB_PROCEDURE, list_empty(CB free_decls), ast_type(TYPE_STRING));
@@ -94,7 +104,7 @@ size_t type_of_path(acx *acx, struct ast_path *p) {
     return t;
 }
 
-size_t analyze_expr(acx *acx, struct ast_expr *e);
+struct resu analyze_expr(acx *acx, struct ast_expr *e);
 
 void analyze_magic(acx *acx, int which, struct list *args) {
     if (which == MAGIC_PUTALL) {
@@ -114,14 +124,16 @@ void analyze_magic(acx *acx, int which, struct list *args) {
     }
 }
 
-size_t analyze_call(acx *acx, struct ast_path *p, struct list *args, void *what_is_this) {
+struct resu analyze_call(acx *acx, struct ast_path *p, struct list *args, void *what_is_this) {
     size_t pty = stab_resolve_func(acx->st, list_last(p->components));
     CHKRESF(pty, list_last(p->components));
     struct stab_type *pt = STAB_TYPE(acx->st, pty);
+    struct resu retv;
 
     if (pt->magic != 0) {
         analyze_magic(acx, pt->magic, args);
-        return VOID_TYPE_IDX;
+        retv.type = VOID_TYPE_IDX;
+        return retv;
     }
 
     if (pt->ty.tag != TYPE_FUNCTION) {
@@ -138,49 +150,56 @@ size_t analyze_call(acx *acx, struct ast_path *p, struct list *args, void *what_
 
     int i = 0;
     LFOREACH2(struct ast_expr *e, void *ft, args, pt->ty.func.args)
-        size_t et = analyze_expr(acx, e);
-        if (!stab_types_eq(acx->st, et, STAB_VAR(acx->st, (size_t) ft)->type)) {
+        struct resu et = analyze_expr(acx, e);
+        if (!stab_types_eq(acx->st, et.type, STAB_VAR(acx->st, (size_t) ft)->type)) {
             DIAG("in "); stab_print_type(acx->st, pty, 0);
             span_diag("type of argument %d doesn't match declaration;", NULL, i);
             DIAG("expected:\n");
             INDENTE(INDSZ); stab_print_type(acx->st, STAB_VAR(acx->st, (size_t) ft)->type, INDSZ); DIAG("\n");
             DIAG("found:\n");
-            INDENTE(INDSZ); stab_print_type(acx->st, et, INDSZ);
+            INDENTE(INDSZ); stab_print_type(acx->st, et.type, INDSZ);
         }
         i++;
     ENDLFOREACH2;
 
-    return pt->ty.func.retty;
+    retv.type = pt->ty.func.retty;
+    return retv;
 }
 
-size_t analyze_expr(acx *acx, struct ast_expr *e) {
-    size_t lty, rty, ty, pty, ety;
+struct resu analyze_expr(acx *acx, struct ast_expr *e) {
+    struct resu lty, rty, ety, retv;
+    size_t ty, pty;
     struct stab_resolved_type t;
     struct stab_type *n, *pt, *st;
+
+    retv.op = NULL; // FIXME
+
     switch (e->tag) {
         case EXPR_APP:
             return analyze_call(acx, e->apply.name, e->apply.args, NULL);
         case EXPR_BIN:
             lty = analyze_expr(acx, e->binary.left);
             rty = analyze_expr(acx, e->binary.right);
-            if (lty != rty) {
+            if (lty.type != rty.type) {
                 span_diag("left:", NULL);
                 print_expr(e->binary.left, INDSZ);
                 DIAG("has type: ");
-                stab_print_type(acx->st, lty, INDSZ);
+                stab_print_type(acx->st, lty.type, INDSZ);
 
                 span_diag("right:", NULL);
                 print_expr(e->binary.right, INDSZ);
                 DIAG("has type: ");
-                stab_print_type(acx->st, rty, INDSZ);
+                stab_print_type(acx->st, rty.type, INDSZ);
 
                 span_err("incompatible types for binary operation", NULL);
             }
 
             if (is_relop(e->binary.op)) {
-                return BOOLEAN_TYPE_IDX;
+                retv.type = BOOLEAN_TYPE_IDX;
+                return retv;
             } else {
-                return lty;
+                retv.type = lty.type;
+                return retv;
             }
         case EXPR_DEREF:
             ty = type_of_path(acx, e->deref);
@@ -188,7 +207,8 @@ size_t analyze_expr(acx *acx, struct ast_expr *e) {
             if (st->ty.tag != TYPE_POINTER) {
                 span_err("tried to dereference non-pointer", NULL);
             }
-            return st->ty.pointer;
+            retv.type = st->ty.pointer;
+            return retv;
         case EXPR_IDX:
             pty = type_of_path(acx, e->idx.path);
             pt = STAB_TYPE(acx->st, pty);
@@ -197,34 +217,41 @@ size_t analyze_expr(acx *acx, struct ast_expr *e) {
             }
             ety = analyze_expr(acx, e->idx.expr);
             // struct stab_type *et = STAB_TYPE(acx->st, ety);
-            if (ety != INTEGER_TYPE_IDX) {
+            if (ety.type != INTEGER_TYPE_IDX) {
                 span_err("tried to index array with non-integer", NULL);
             }
-            return pt->ty.array.elt_type;
+            retv.type = pt->ty.array.elt_type;
+            return retv;
         case EXPR_LIT:
             // FIXME
-            return INTEGER_TYPE_IDX;
+            retv.type = INTEGER_TYPE_IDX;
+            return retv;
         case EXPR_PATH:
-            return type_of_path(acx, e->path);
+            // always an lvalue, compute address
+            retv.type = type_of_path(acx, e->path);
+            return retv;
         case EXPR_UN:
             ety = analyze_expr(acx, e->unary.expr);
-            if (e->unary.op != NOT && (ety != INTEGER_TYPE_IDX || ety != REAL_TYPE_IDX)) {
+            if (e->unary.op != NOT && (ety.type != INTEGER_TYPE_IDX || ety.type != REAL_TYPE_IDX)) {
                 span_err("tried to apply unary +/- to a non-number", NULL);
-            } else if (ety != BOOLEAN_TYPE_IDX) {
+            } else if (ety.type != BOOLEAN_TYPE_IDX) {
                 span_err("tried to boolean-NOT a non-boolean", NULL);
             }
-            return ety;
+            retv.type = ety.type;
+            return retv;
         case EXPR_ADDROF:
             ety = analyze_expr(acx, e->addrof);
             t.tag = TYPE_POINTER;
-            t.pointer = ety;
+            t.pointer = ety.type;
             n = M(struct stab_type);
             n->ty = t;
-            n->name = strdup(STAB_TYPE(acx->st, ety)->name); //astrcat("@", STAB_TYPE(acx->st, ety)->name);
+            n->name = strdup(STAB_TYPE(acx->st, ety.type)->name); //astrcat("@", STAB_TYPE(acx->st, ety)->name);
             n->size = ABI_POINTER_SIZE; // XHAZARD
             n->align = ABI_POINTER_ALIGN; // XHAZARD
             n->defn = NULL;
-            return ptrvec_push(acx->st->types, YOLO n); // XXX
+
+            retv.type = ptrvec_push(acx->st->types, YOLO n);
+            return retv;
         default:
             abort();
     }
@@ -246,38 +273,129 @@ void check_assignability(acx *acx, struct ast_expr *e) {
 }
 
 void analyze_stmt(acx *acx, struct ast_stmt *s) {
-    size_t rty, lty, sty, ety, cty;
+    struct resu lty, rty, sty, ety, cty;
+    struct insn *i1, *i2, *i3, *i4, *i5;
+    struct cir_bb *saved, *l0, *l1;
+
     switch (s->tag) {
         case STMT_ASSIGN:
             lty = analyze_expr(acx, s->assign.lvalue);
             check_assignability(acx, s->assign.lvalue);
 
             rty = analyze_expr(acx, s->assign.rvalue);
-            if (!stab_types_eq(acx->st, rty, lty)) {
+            if (!stab_types_eq(acx->st, rty.type, lty.type)) {
                 span_err("cannot assign incompatible type", NULL);
             }
+            INSN(ST, lty.op, rty.op);
             break;
+
         case STMT_FOR:
             sty = analyze_expr(acx, s->foor.start);
             ety = analyze_expr(acx, s->foor.end);
-            if (sty != INTEGER_TYPE_IDX) {
+            if (sty.type != INTEGER_TYPE_IDX) {
                 span_err("type of start not integer", NULL);
-            } else if (ety != INTEGER_TYPE_IDX) {
+            } else if (ety.type != INTEGER_TYPE_IDX) {
                 span_err("type of end not integer", NULL);
             }
             /* enter scope for the induction variable */
             stab_enter(acx->st);
-            stab_add_var(acx->st, strdup(s->foor.id), sty, NULL);
+
+            stab_add_var(acx->st, strdup(s->foor.id), sty.type, NULL);
+
+            /*
+             * FOR A := s TO e DO ... END
+             *
+             * %1 = ALLOC sizeof(A)
+             * ST %1, s
+             * BR true, .L0
+             *
+             * .L0:
+             * %2 = LD %1
+             * %3 = LT %2, e
+             * BR %3 .L1, .L2
+             *
+             * .L1:
+             * <body>
+             * %4 = ADD %2, 1
+             * BR true, .L0
+             *
+             * .L2:
+             * ...
+             */
+
+            i1 = INSN(ALLOC, STAB_TYPE(acx->st, INTEGER_TYPE_IDX)->size);
+            INSN(ST, i1, sty.op);
+            i2 = INSN(BR, INSN_TRUE, NULL); // patch with l0
+
+            saved = acx->current_bb;
+            acx->current_bb = cir_bb();
+            l0 = acx->current_bb;
+
+            i3 = INSN(LD, i1);
+            i4 = INSN(LT, i3, ety.op);
+            INSN(BR, i4, NULL, NULL); // patch with l1, l2
+
+            acx->current_bb = cir_bb();
+            l1 = acx->current_bb;
+
             analyze_stmt(acx, s->foor.body);
+
+            i5 = INSN(ADD, i3, ILIT(1));
+            INSN(ST, i1, i5);
+            INSN(BR, INSN_TRUE, l0);
+
+            acx->current_bb = cir_bb();
+
+            i2->b = oper_new(OPER_LABEL, l0);
+            i4->b = oper_new(OPER_LABEL, l1);
+            i4->c = oper_new(OPER_LABEL, acx->current_bb);
+
             stab_leave(acx->st);
+
             break;
+
         case STMT_ITE:
             cty = analyze_expr(acx, s->ite.cond);
-            if (cty != BOOLEAN_TYPE_IDX) {
+            if (cty.type != BOOLEAN_TYPE_IDX) {
                 span_err("type of if condition not boolean", NULL);
             }
+
+            /*
+             * IF c THEN t ELSE e
+             *
+             * BR c, .L0, .L1
+             *
+             * .L0:
+             * t
+             * BR true, .L2
+             *
+             * .L1:
+             * e
+             * BR true, .L2
+             *
+             * .L2:
+             * ...
+             */
+
+            i1 = INSN(BR, cty.op, NULL, NULL); // patch with l0, l1
+
+            acx->current_bb = cir_bb();
+            l0 = acx->current_bb;
             analyze_stmt(acx, s->ite.then);
+            i2 = INSN(BR, INSN_TRUE, NULL); // patch with l2
+
+            acx->current_bb = cir_bb();
+            l1 = acx->current_bb;
             analyze_stmt(acx, s->ite.elze);
+            i3 = INSN(BR, INSN_TRUE, NULL); // patch with l2
+
+            acx->current_bb = cir_bb();
+
+            i1->b = oper_new(OPER_LABEL, l0);
+            i1->c = oper_new(OPER_LABEL, l1);
+            i2->b = oper_new(OPER_LABEL, acx->current_bb);
+            i3->b = oper_new(OPER_LABEL, acx->current_bb);
+
             break;
         case STMT_PROC:
             analyze_call(acx, s->apply.name, s->apply.args, NULL);
@@ -288,11 +406,39 @@ void analyze_stmt(acx *acx, struct ast_stmt *s) {
             ENDLFOREACH;
             break;
         case STMT_WDO:
-            cty = analyze_expr(acx, s->wdo.cond);
-            if (cty != BOOLEAN_TYPE_IDX) {
+            if (cty.type != BOOLEAN_TYPE_IDX) {
                 span_err("type of while condition not boolean", NULL);
             }
+            /*
+             * WHILE c DO w END
+             *
+             * .L0:
+             * %1 = c
+             * BR %1, .L1, .L2
+             *
+             * .L1:
+             * w
+             * BR true, .L0
+             *
+             * .L2:
+             * ...
+             */
+            acx->current_bb = cir_bb();
+            l0 = acx->current_bb;
+
+            cty = analyze_expr(acx, s->wdo.cond);
+
+            i1 = INSN(BR, cty.op, NULL, NULL); // patch with l1, l2
+
+            acx->current_bb = cir_bb();
+            l1 = acx->current_bb;
             analyze_stmt(acx, s->wdo.body);
+            INSN(BR, INSN_TRUE, oper_new(OPER_LABEL, l0));
+
+            acx->current_bb = cir_bb();
+            i1->b = oper_new(OPER_LABEL, l1);
+            i1->c = oper_new(OPER_LABEL, acx->current_bb);
+
             break;
         default:
             abort();
@@ -321,6 +467,10 @@ void analyze_subprog(acx *acx, struct ast_subdecl *s) {
     // add the return slot...
     stab_add_var(acx->st, strdup(s->name), stab_resolve_type(acx->st, strdup("<retslot>"), s->head->func.retty), NULL);
 
+    HFOREACH(void *decl, ((struct stab_scope *)list_last(acx->st->chain))->vars)
+        ptrvec_push(acx->current_bb->insns, STAB_VAR(acx->st, (size_t) decl)->loc);
+    ENDHFOREACH;
+
     // analyze each subprogram, taking care that it is in its own scope...
     LFOREACH(struct ast_subdecl *d, s->subprogs)
         stab_add_func(acx->st, strdup(d->name), d->head);
@@ -329,6 +479,7 @@ void analyze_subprog(acx *acx, struct ast_subdecl *s) {
 
     struct stab_type *saved = acx->current_func;
     acx->current_func = STAB_FUNC(acx->st, stab_resolve_func(acx->st, s->name));
+    acx->current_bb = acx->current_func->cfunc->entry;
 
     // now analyze the subprogram body.
     analyze_stmt(acx, s->body);
@@ -360,6 +511,15 @@ struct stab *analyze(struct ast_program *prog) {
     LFOREACH(struct ast_decls *d, prog->decls)
         stab_add_decls(acx.st, d);
     ENDLFOREACH;
+
+    struct stab_type t;
+    t.cfunc = cfunc_new(NULL);
+    acx.current_func = &t;
+    acx.current_bb = t.cfunc->entry;
+
+    HFOREACH(void *decl, ((struct stab_scope *)list_last(acx.st->chain))->vars)
+        ptrvec_push(acx.current_bb->insns, STAB_VAR(acx.st, (size_t) decl)->loc);
+    ENDHFOREACH;
 
     // analyze each subprogram, taking care that it is in its own scope...
     // note that these all become globals
