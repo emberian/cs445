@@ -74,7 +74,7 @@ char *compile_input(char *program_source, size_t len, int options) {
         return "";
     }
 
-    struct ir *ir = translate(program, st);
+    struct cir_prog *ir = translate(program, st);
 
     free_program(program);
     stab_free(st);

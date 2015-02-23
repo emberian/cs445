@@ -224,8 +224,8 @@ static size_t stab_resolve_complex_type(struct stab *st, char *name, struct ast_
             ENDLFOREACH;
 
             struct rec_layout *layout = compute_rec_layout(st, t->ty.record.fields);
-            t->size = layout->size;
-            t->align = layout->align;
+            t->size = layout->overall.size;
+            t->align = layout->overall.align;
             t->ty.record.layout = layout;
 
             break;
@@ -240,6 +240,7 @@ static size_t stab_resolve_complex_type(struct stab *st, char *name, struct ast_
             t->ty.func.type = ty->func.type;
             t->ty.func.retty = stab_resolve_type(st, strdup("<func ret>"), ty->func.retty);
             t->ty.func.args = list_empty(CB dummy_free);
+            t->ty.func.ret_assigned = false;
 
             LFOREACH(struct ast_decls *decl, ty->func.args)
                 LFOREACH(char *name, decl->names)

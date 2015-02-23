@@ -19,11 +19,11 @@ struct sizing {
 
 struct rec_layout {
     struct sizing overall;
-    ptrvec *fields;
+    struct ptrvec *fields;
 };
 
-struct ir *translate(struct ast_program *, struct stab *);
-void free_ir(struct ir *);
+struct cir_prog *translate(struct ast_program *, struct stab *);
+void free_ir(struct cir_prog *);
 
 void free_rec_layout(struct rec_layout *);
 struct rec_layout *compute_rec_layout(struct stab *, struct list *);
@@ -112,7 +112,7 @@ enum cir_op {
     IPHI,
 };
 
-enum operand {
+enum operand_ty {
     OPER_ILIT,
     OPER_FLIT,
     OPER_REG,
@@ -126,6 +126,7 @@ struct operand {
         uint64_t ilit;
         double flit;
     };
+    enum operand_ty tag;
 };
 
 enum cir_ty {
@@ -142,16 +143,16 @@ struct insn {
 };
 
 struct cir_bb {
-    ptrvec *insns;
+    struct ptrvec *insns;
 };
 
 struct cir_func {
-    ptrvec *args;
+    struct ptrvec *args;
     struct cir_bb *entry;
 };
 
 struct cir_prog {
-    ptrvec *funcs;
+    struct ptrvec *funcs;
     struct cir_func *main;
 };
 

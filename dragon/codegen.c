@@ -1,5 +1,5 @@
 #include "codegen.h"
 
-char *codegen(struct ir *prog) {
+char *codegen(struct cir_prog *prog) {
     return "done";
 }

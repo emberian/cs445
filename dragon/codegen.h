@@ -2,6 +2,6 @@
 #define _CODEGEN_H
 #include "translate.h"
 
-char *codegen(struct ir *);
+char *codegen(struct cir_prog *);
 
 #endif

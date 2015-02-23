@@ -59,6 +59,7 @@ struct stab_resolved_type {
             enum subprogs type; // func or proc?
             struct list *args; // arg types
             size_t retty; // ret ty
+            bool ret_assigned;
         } func;
         size_t pointer;
         struct {
@@ -109,7 +110,7 @@ void stab_print_type(struct stab *, size_t, int);
 
 #define STAB_VAR(st, idx) ((struct stab_var *) (st)->vars->data[(idx)])
 #define STAB_TYPE(st, idx) ((struct stab_type *) (st)->types->data[(idx)])
-#define STAB_FUNC(st, idx) ((struct stab_type *) (st)->funcs->data[(idx)])
+#define STAB_FUNC(st, idx) ((struct stab_type *) (st)->types->data[(idx)])
 
 #define CHKRES(type, name, idx) do {\
     if (idx == -1) {\

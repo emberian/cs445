@@ -1,9 +1,14 @@
+#include <assert.h>
+
 #include "ast.h"
 #include "symbol.h"
 #include "util.h"
 
 typedef struct acx {
     struct stab *st;
+    // rather than keeping a stack of these, just save what is needed when it
+    // is needed and use the C stack.
+    struct stab_type *current_func;
 } acx;
 
 void register_input(acx *acx, struct ast_program *prog) {
@@ -225,12 +230,27 @@ size_t analyze_expr(acx *acx, struct ast_expr *e) {
     }
 }
 
+void check_assignability(acx *acx, struct ast_expr *e) {
+    assert(e->tag == EXPR_PATH);
+
+    if (acx->current_func->ty.func.type == SUB_FUNCTION) {
+        if (!stab_has_local_var(acx->st, e->path->components->inner.elt)) {
+            span_err("assigned to non-local in function", NULL);
+        }
+    }
+    if (strcmp(acx->current_func->name, e->path->components->inner.elt) == 0) {
+        acx->current_func->ty.func.ret_assigned = true;
+    }
+}
+
 void analyze_stmt(acx *acx, struct ast_stmt *s) {
     size_t rty, lty, sty, ety, cty;
     switch (s->tag) {
         case STMT_ASSIGN:
-            rty = analyze_expr(acx, s->assign.rvalue);
             lty = analyze_expr(acx, s->assign.lvalue);
+            check_assignability(acx, s->assign.lvalue);
+
+            rty = analyze_expr(acx, s->assign.rvalue);
             if (!stab_types_eq(acx->st, rty, lty)) {
                 span_err("cannot assign incompatible type", NULL);
             }
@@ -305,8 +325,16 @@ void analyze_subprog(acx *acx, struct ast_subdecl *s) {
         analyze_subprog(acx, d);
     ENDLFOREACH;
 
+    struct stab_type *saved = acx->current_func;
+    acx->current_func = STAB_FUNC(acx->st, stab_resolve_func(acx->st, s->name));
+
     // now analyze the subprogram body.
     analyze_stmt(acx, s->body);
+    if (!acx->current_func->ty.func.ret_assigned) {
+        span_err("return value of %s not assigned", NULL, acx->current_func->name);
+    }
+
+    acx->current_func = saved;
 
     // leave the new scope
     stab_leave(acx->st);
