@@ -1,0 +1,16 @@
+PROGRAM `example` WITH ARGS:
+  `input`
+  `output`
+AND VARIABLES:
+  DECLARATION WITH TYPE:
+    CHAR
+  OF NAMES:
+    `x`
+AND SUBPROGRAMS:
+DOES:
+  ASSIGN
+    x
+  TO
+    APPLY `getchar`
+    TO ARGS:
+-- done dumping ast --

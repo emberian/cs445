@@ -211,6 +211,7 @@ procedure_statement : path                         { $$ = ast_stmt(STMT_PROC, $1
 
 expression_list : expression                     { $$ =     list_new($1, CB free_expr);     }
                 | expression_list ',' expression { $$ = $1; list_add($$, $3); }
+                | %empty                         { $$ = list_empty(CB free_expr); }
                 ;
 
 expression : simple_expression

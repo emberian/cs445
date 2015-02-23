@@ -63,10 +63,10 @@ size_t type_of_path(acx *acx, struct ast_path *p) {
     size_t t;
     struct stab_resolved_type *ty;
     size_t idx = stab_resolve_var(acx->st, c->inner.elt);
+    CHKRESV(idx, c->inner.elt);
     if (!stab_has_local_var(st, c->inner.elt)) {
         STAB_VAR(st, idx)->captured = true;
     }
-    CHKRESV(idx, c->inner.elt);
     t = STAB_VAR(st, idx)->type;
     ty = &STAB_TYPE(st, t)->ty;
     bool first = false;
@@ -232,6 +232,8 @@ size_t analyze_expr(acx *acx, struct ast_expr *e) {
 
 void check_assignability(acx *acx, struct ast_expr *e) {
     assert(e->tag == EXPR_PATH);
+    // we're in the toplevel program, we're fine.
+    if (!acx->current_func) { return; }
 
     if (acx->current_func->ty.func.type == SUB_FUNCTION) {
         if (!stab_has_local_var(acx->st, e->path->components->inner.elt)) {
