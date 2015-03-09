@@ -11,6 +11,7 @@
 
 #define MAGIC_SCANLINE (-2)
 #define MAGIC_PUTALL (-3)
+#define MAGIC_BUILTIN (-4)
 
 #define INTEGER_TYPE_IDX 0
 #define REAL_TYPE_IDX 1
@@ -96,8 +97,8 @@ struct stab *stab_new();
 void stab_free(struct stab *);
 
 void stab_add_decls(struct stab *, struct ast_decls *);
-size_t stab_add_var(struct stab *st, char *name, size_t type, YYLTYPE *span);
-void stab_add_func(struct stab *, char *, struct ast_type *);
+size_t stab_add_var(struct stab *st, char *name, size_t type, YYLTYPE *span, bool);
+void stab_add_func(struct stab *, char *, struct ast_type *, bool);
 void stab_add_magic_func(struct stab *, int);
 void stab_add_type(struct stab *, char *, struct ast_type *);
 

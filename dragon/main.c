@@ -6,7 +6,7 @@
 
 #include "driver.h"
 
-static char *USAGE = "usage: comp [-lpnNCT] <filename>";
+static char *USAGE = "usage: comp [-lpinNC] <filename>";
 
 int main(int argc, char **argv) {
     if (argc < 2) {
@@ -31,14 +31,14 @@ int main(int argc, char **argv) {
                 case 'p':
                     options |= DUMP_AST;
                     break;
+                case 'i':
+                    options |= DUMP_IR;
+                    break;
                 case 'n':
                     options |= NO_PARSE;
                     break;
                 case 'N':
                     options |= NO_ANALYSIS;
-                    break;
-                case 'T':
-                    options |= NO_TRANSLATION;
                     break;
                 case 'C':
                     options |= NO_CODEGEN;
@@ -51,9 +51,7 @@ int main(int argc, char **argv) {
         }
     }
 
-    char *ret = compile_input(data, (size_t)len, options);
-    if (*ret)
-        fprintf(stdout, "%s\n", ret);
+    compile_input(data, (size_t)len, options);
 
     return 0;
 }

@@ -56,6 +56,10 @@ void test_hash_smoke() {
         assert(*(int*)hash_lookup(h, key) == i);
     }
 
+    HFOREACH(ent, h)
+        assert(*(int*)ent->key == *(int*)ent->val);
+    ENDHFOREACH;
+
     hash_free(h);
 }
 

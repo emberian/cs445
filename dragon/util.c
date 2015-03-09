@@ -116,7 +116,7 @@ size_t ptrvec_push(struct ptrvec *vec, void *elem) {
 }
 
 void *ptrvec_last(struct ptrvec *vec) {
-    return vec->data[vec->length];
+    return vec->data[vec->length - 1];
 }
 
 void ptrvec_free(struct ptrvec *vec) {
@@ -144,11 +144,6 @@ struct hash_table *hash_new(size_t num_buckets, HASH_FUNC hash,
 }
 
 #define HASH tab->hash(key) % tab->num_buckets
-
-struct bucket_entry {
-    void *key;
-    void *val;
-};
 
 void *hash_lookup(struct hash_table *tab, void *key) {
     struct list *bucket = tab->buckets[HASH];

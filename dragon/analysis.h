@@ -4,6 +4,13 @@
 #include "ast.h"
 #include "symbol.h"
 
-struct stab *analyze(struct ast_program *);
+struct acx {
+    struct stab *st;
+    struct cir_func *main;
+    struct stab_type *current_func;
+    struct cir_bb *current_bb;
+};
+
+struct acx analyze(struct ast_program *);
 
 #endif

@@ -7,9 +7,9 @@
 #define DUMP_AST (1 << 1)
 #define NO_PARSE (1 << 2)
 #define NO_ANALYSIS (1 << 3)
-#define NO_TRANSLATION (1 << 4)
-#define NO_CODEGEN (1 << 5)
+#define NO_CODEGEN (1 << 4)
+#define DUMP_IR (1 << 5)
 
-char *compile_input(char *, size_t, int);
+void compile_input(char *, size_t, int);
 
 #endif

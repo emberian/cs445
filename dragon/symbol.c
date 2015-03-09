@@ -34,7 +34,8 @@ static void free_stab_type(struct stab_type *t) {
             break;
 
         case TYPE_FUNCTION:
-            if (t->magic == 0) { list_free(t->ty.func.args); }
+            list_free(t->ty.func.args);
+            func_free(t->cfunc);
             break;
 
         default:
@@ -177,15 +178,17 @@ size_t stab_resolve_var(struct stab *st, char *name) {
     return RESOLVE_FAILURE;
 }
 
-size_t stab_add_var(struct stab *st, char *name, size_t type, YYLTYPE *span) {
+size_t stab_add_var(struct stab *st, char *name, size_t type, YYLTYPE *span, bool add_to_locals) {
     struct stab_var *v = M(struct stab_var);
     v->type = type;
     v->defn = span;
     v->name = name;
-    v->loc = insn_new(IALLOC, STAB_TYPE(st, type)->size);
 
     size_t id = ptrvec_push(st->vars, YOLO v);
-    hash_insert(((struct stab_scope*)list_last(st->chain))->vars, YOLO name, YOLO id);
+    if (add_to_locals) {
+        v->loc = insn_new(IALLOC, oper_new(OPER_ILIT, STAB_TYPE(st, type)->size));
+        hash_insert(((struct stab_scope*)list_last(st->chain))->vars, YOLO name, YOLO id);
+    }
 
     return id;
 }
@@ -243,11 +246,12 @@ static size_t stab_resolve_complex_type(struct stab *st, char *name, struct ast_
             t->ty.func.retty = stab_resolve_type(st, strdup("<func ret>"), ty->func.retty);
             t->ty.func.args = list_empty(CB dummy_free);
             t->ty.func.ret_assigned = false;
+            t->magic = 0;
 
             LFOREACH(struct ast_decls *decl, ty->func.args)
                 LFOREACH(char *name, decl->names)
                     size_t id = stab_resolve_type(st, strdup(name), decl->type);
-                    list_add(t->ty.func.args, YOLO stab_add_var(st, strdup(name), id, NULL));
+                    list_add(t->ty.func.args, YOLO stab_add_var(st, strdup(name), id, NULL, false));
                 ENDLFOREACH;
             ENDLFOREACH;
 
@@ -315,19 +319,22 @@ void stab_add_decls(struct stab *st, struct ast_decls *decls) {
         if (stab_has_local_var(st, (char *)var)) {
             span_err("%s is already defined", NULL, var);
         } else {
-            stab_add_var(st, strdup(var), type, NULL);
+            stab_add_var(st, strdup(var), type, NULL, true);
         }
     ENDLFOREACH;
     //? stab_abort(st);
     return;
 }
 
-void stab_add_func(struct stab *st, char *name, struct ast_type *sig) {
+void stab_add_func(struct stab *st, char *name, struct ast_type *sig, bool is_builtin) {
     assert(sig->tag == TYPE_FUNCTION);
     if (stab_has_local_func(st, name)) {
         span_err("%s is already defined", NULL, name);
     } else {
         size_t type = stab_resolve_complex_type(st, name, sig);
+        if (is_builtin) {
+            STAB_TYPE(st, type)->magic = MAGIC_BUILTIN;
+        }
         hash_insert(((struct stab_scope *)list_last(st->chain))->funcs, YOLO name, YOLO type);
     }
     //? stab_abort(st);
@@ -341,6 +348,8 @@ void stab_add_magic_func(struct stab *st, int which) {
     t->name = name;
     t->ty.tag = TYPE_FUNCTION;
     t->magic = which;
+    t->cfunc = cfunc_new(NULL);
+    t->ty.func.args = NULL;
 
     size_t type = ptrvec_push(st->types, t);
     hash_insert(((struct stab_scope *)list_last(st->chain))->funcs, YOLO name, YOLO type);

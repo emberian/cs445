@@ -95,10 +95,15 @@ struct hash_table {
     struct list **buckets;
 };
 
-#define HFOREACH(decl, hm) do { \
-    int __i; struct list *__bucket; \
-    for (__i = 0, __bucket = hm->buckets[0]; __i < hm->num_buckets; __i++, __bucket = hm->buckets[__i]) {\
-    LFOREACH(decl, __bucket)
+struct bucket_entry {
+    void *key;
+    void *val;
+};
+
+#define HFOREACH(name, hm) do { \
+    int __hi; struct list *__bucket; \
+    for (__hi = 0, __bucket = hm->buckets[0]; __hi < hm->num_buckets; __bucket = hm->buckets[__hi++]) {\
+    LFOREACH(struct bucket_entry *name, __bucket)
 
 #define ENDHFOREACH ENDLFOREACH; } } while (0)
 

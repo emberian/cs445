@@ -1,5 +1,5 @@
 #include "codegen.h"
 
-char *codegen(struct cir_prog *prog) {
-    return "done";
+void codegen(struct cir_func *prog) {
+    printf("--- ASM LISTING ---\n");
 }

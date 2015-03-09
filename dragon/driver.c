@@ -8,7 +8,7 @@
 #include "token.h"
 #include "translate.h"
 
-char *compile_input(char *program_source, size_t len, int options) {
+void compile_input(char *program_source, size_t len, int options) {
     void *lexer;
 
     struct ast_program *program = NULL;
@@ -36,7 +36,7 @@ char *compile_input(char *program_source, size_t len, int options) {
 
     }
 
-    if (options & NO_PARSE) { return ""; }
+    if (options & NO_PARSE) { return; }
 
     yylex_init(&lexer);
     YY_BUFFER_STATE inp = yy_scan_bytes(program_source, len, lexer);
@@ -49,7 +49,7 @@ char *compile_input(char *program_source, size_t len, int options) {
         free_program(program);
         yy_delete_buffer(inp, lexer);
         yylex_destroy(lexer);
-        return "";
+        return;
     }
 
     yy_delete_buffer(inp, lexer);
@@ -63,29 +63,32 @@ char *compile_input(char *program_source, size_t len, int options) {
 
     if (options & NO_ANALYSIS) {
         free_program(program);
-        return "";
+        return;
     }
 
-    struct stab *st = analyze(program);
+    struct acx acx = analyze(program);
 
-    if (options & NO_TRANSLATION) {
-        free_program(program);
-        stab_free(st);
-        return "";
+    if (options & DUMP_IR) {
+        struct ptrvec *v = acx.st->types;
+        struct stab_type *t;
+        func_print(acx.main, "<main>");
+        for (int i = 0; i < v->length; i++) {
+            t = ((struct stab_type**)v->data)[i];
+            if (t->ty.tag == TYPE_FUNCTION && t->magic == 0) {
+                func_print(t->cfunc, t->name);
+            }
+        }
     }
-
-    struct cir_prog *ir = translate(program, st);
-
-    free_program(program);
-    stab_free(st);
 
     if (options & NO_CODEGEN) {
-        free_ir(ir);
-        return "";
+        free_program(program);
+        stab_free(acx.st);
+        func_free(acx.main);
+        return;
     }
 
-    char *code = codegen(ir);
-    free_ir(ir);
-
-    return code;
+    codegen(acx.main);
+    free_program(program);
+    stab_free(acx.st);
+    func_free(acx.main);
 }

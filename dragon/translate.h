@@ -11,6 +11,14 @@
 #define ABI_CLOSURE_SIZE (ABI_POINTER_SIZE * 2)
 #define ABI_CLOSURE_ALIGN (ABI_POINTER_ALIGN * 2)
 
+#define INSN(n, ...) (ptrvec_push(acx->current_bb->insns, insn_new(I ## n, __VA_ARGS__)), (struct insn*) ptrvec_last(acx->current_bb->insns))
+#define ILIT(n) (oper_new(OPER_ILIT, (int64_t)n))
+#define INSN_TRUE (oper_new(OPER_BLIT, true))
+#define IARGS(n) (oper_new(OPER_ARGS, n))
+#define IFUNC(n) (oper_new(OPER_FUNC, n))
+#define IREG(n) (oper_new(OPER_REG, n))
+
+
 struct stab;
 
 struct sizing {
@@ -21,9 +29,6 @@ struct rec_layout {
     struct sizing overall;
     struct ptrvec *fields;
 };
-
-struct cir_prog *translate(struct ast_program *, struct stab *);
-void free_ir(struct cir_prog *);
 
 void free_rec_layout(struct rec_layout *);
 struct rec_layout *compute_rec_layout(struct stab *, struct list *);
@@ -51,9 +56,9 @@ struct tcx {
  * When considering the (static) call graph of the program, all functions may
  * access the local variables of its predecessors. This is somewhat
  * challenging to represent in a reusable IR such as this. The approach taken
- * is to add an argument to every function which either is or dominates a
- * function which captures nonlocals. The translator creates an aggregate type
- * for all captured locals of a function, and stores these in memory. These
+ * is to add an argument to every function which dominates a function which
+ * captures nonlocals. The translator creates an aggregate type for all
+ * captured locals of a function, and stores these in memory. These
  * aggregates, known as capture groups (CGs), also have a field for a pointer
  * to the parent group, as well as a unique ID identifying the function the CG
  * belongs to. Then, when a subfunction needs to access a nonlocal, it can
@@ -85,7 +90,7 @@ enum cir_op {
     // A % B
     IMOD,
 
-    // B = ~A
+    // ~A
     INOT,
     // A & B
     IAND,
@@ -94,25 +99,31 @@ enum cir_op {
 
     // load B bytes from A
     ILD,
-    // A <- B
+    // store C bytes of B to A (A <- B)
     IST,
     // space on stack for A bytes
     IALLOC,
     // A < B
     ILT,
-    // A < B
+    // A <= B
     ILE,
-    // A < B
+    // A > B
     IGT,
-    // A < B
+    // A >= B
     IGE,
-    // A < B
+    // A = B
     IEQ,
-    // A < B
+    // A != B
     INE,
+    // call A with arguments from B
+    ICALL,
+    // "phony" instruction -- literal A
+    ILIT,
 
-    // PHI(a, b). Created by the SSAifier.
+    // PHI(...). Created by SSI conversion
     IPHI,
+    // SIGMA(...). Created by SSI conversion
+    ISIG,
 };
 
 enum operand_ty {
@@ -120,7 +131,9 @@ enum operand_ty {
     OPER_BLIT,
     OPER_FLIT,
     OPER_REG,
-    OPER_LABEL
+    OPER_LABEL,
+    OPER_ARGS,
+    OPER_FUNC,
 };
 
 struct operand {
@@ -130,6 +143,8 @@ struct operand {
         bool blit;
         uint64_t ilit;
         double flit;
+        struct ptrvec *args;
+        struct cir_func *func;
     };
     enum operand_ty tag;
 };
@@ -152,19 +167,24 @@ struct cir_bb {
 };
 
 struct cir_func {
-    struct ptrvec *args;
+    struct list *args;
+    struct ptrvec *bbs;
     struct cir_bb *entry;
 };
 
-struct cir_prog {
-    struct ptrvec *funcs;
-    struct cir_func *main;
-};
-
-struct cir_prog *cir_prog();
 struct cir_func *cfunc_new(struct list *);
 struct cir_bb *cir_bb();
 struct insn *insn_new(enum cir_op, ...);
 struct operand oper_new(enum operand_ty, ...);
+
+void insn_free(struct insn *);
+void bb_free(struct cir_bb *);
+void func_free(struct cir_func *);
+void oper_free(struct operand);
+
+void insn_print(struct insn *, int);
+void bb_print(struct cir_bb *, int);
+void func_print(struct cir_func *, char *);
+void oper_print(struct operand, int);
 
 #endif
