@@ -601,6 +601,7 @@ struct acx analyze(struct ast_program *prog) {
 
     struct stab_type t;
     t.cfunc = cfunc_new(NULL);
+    t.name = "~!@__unassignable__@!~";
     acx.current_func = &t;
     acx.current_bb = t.cfunc->entry;
 
