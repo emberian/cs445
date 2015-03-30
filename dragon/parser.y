@@ -95,7 +95,6 @@ struct ast_program;
 %type <tok> mulop
 %type <tok> relop
 %type <tok> sign
-%type <tok> FUNCTION PROCEDURE
 %type <name> ID NUM
 %type <type> standard_type
 %type <type> type
@@ -164,11 +163,11 @@ subprogram_declarations : subprogram_declarations subprogram_declaration ';' { $
 subprogram_declaration : FUNCTION ID arguments ':' standard_type ';'  subprogram_declarations
                        type_declarations declarations compound_statement
                        {
-                       $$ = ast_subprogram_decl(ast_type(TYPE_FUNCTION, $1, $3, $5), $2, $7, $8, $9, $10);
+                       $$ = ast_subprogram_decl(ast_type(TYPE_FUNCTION, SUB_FUNCTION, $3, $5), $2, $7, $8, $9, $10);
                        }
                        | PROCEDURE ID arguments ';' subprogram_declarations type_declarations declarations compound_statement
                        {
-                       $$ = ast_subprogram_decl(ast_type(TYPE_FUNCTION, $1, $3, NULL), $2, $5, $6, $7, $8);
+                       $$ = ast_subprogram_decl(ast_type(TYPE_FUNCTION, SUB_PROCEDURE, $3, NULL), $2, $5, $6, $7, $8);
                        }
                        ;
 
