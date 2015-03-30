@@ -163,9 +163,9 @@ subprogram_declaration : FUNCTION ID arguments ':' standard_type ';'  subprogram
                        {
                        $$ = ast_subprogram_decl(ast_type(TYPE_FUNCTION, $1, $3, $5), $2, $7, $8, $9, $10);
                        }
-                       | PROCEDURE ID arguments subprogram_declarations type_declarations declarations compound_statement
+                       | PROCEDURE ID arguments ';' subprogram_declarations type_declarations declarations compound_statement
                        {
-                       $$ = ast_subprogram_decl(ast_type(TYPE_FUNCTION, $1, $3, NULL), $2, $4, $5, $6, $7);
+                       $$ = ast_subprogram_decl(ast_type(TYPE_FUNCTION, $1, $3, NULL), $2, $5, $6, $7, $8);
                        }
                        ;
 

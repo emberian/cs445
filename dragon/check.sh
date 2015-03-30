@@ -8,6 +8,7 @@
 if [ $4 = "all" ]; then
     $0 $1 $2 $3 lexer &&
     $0 $1 $2 $3 parser &&
+    $0 $1 $2 $3 semantic &&
     $0 $1 $2 $3 compile-fail &&
     $0 $1 $2 $3 run-pass &&
     echo "All tests passed"
@@ -44,6 +45,24 @@ case $4 in
         for file in $1/tests/parser/*.d; do
             declare -a failed
             $2 -pN $file > $tmp/$file.actual 2>&1
+            if not diff -u $tmp/$file.actual $file.expected; then
+                echo "Test failed: $file"
+                failed+=($file)
+            else
+                echo "Test passed: $file"
+            fi
+        done
+        if [ ! ${#failed[@]} = 0 ]; then
+            echo "Parser tests failed: $failed"
+            status=1
+        fi
+        ;;
+    semantic)
+        echo "Doing semantic tests..."
+        mkdir -p $tmp/$1/tests/semantic
+        for file in $1/tests/semantic/*.d; do
+            declare -a failed
+            $2 -C $file > $tmp/$file.actual 2>&1
             if not diff -u $tmp/$file.actual $file.expected; then
                 echo "Test failed: $file"
                 failed+=($file)
