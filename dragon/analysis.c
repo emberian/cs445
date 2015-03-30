@@ -377,7 +377,7 @@ void analyze_stmt(struct acx *acx, struct ast_stmt *s) {
             /* enter scope for the induction variable */
             stab_enter(acx->st);
 
-            stab_add_var(acx->st, strdup(s->foor.id), sty.type, NULL, true);
+            //stab_add_var(acx->st, strdup(s->foor.id), sty.type, NULL, true);
 
             /*
              * FOR A := s TO e DO ... END
