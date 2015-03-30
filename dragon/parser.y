@@ -100,6 +100,9 @@ struct ast_program;
 %type <type> standard_type
 %type <type> type
 
+%precedence THEN
+%precedence ELSE
+
 %pure-parser
 %lex-param {void * scanner}
 %parse-param {struct ast_program **res}
@@ -192,6 +195,7 @@ statement : lvalue ASSIGNOP expression                                { $$ = ast
           | procedure_statement
           | compound_statement                                        { $$ = ast_stmt(STMT_STMTS, $1);           }
           | IF expression THEN statement ELSE statement               { $$ = ast_stmt(STMT_ITE, $2, $4, $6);     }
+          | IF expression THEN statement                              { $$ = ast_stmt(STMT_ITE, $2, $4, NULL);     }
           | WHILE expression DO statement                             { $$ = ast_stmt(STMT_WDO, $2, $4);         }
           | FOR ID ASSIGNOP expression TO expression DO statement ';' { $$ = ast_stmt(STMT_FOR, $2, $4, $6, $8); }
           ;

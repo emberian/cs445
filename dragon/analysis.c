@@ -468,7 +468,7 @@ void analyze_stmt(struct acx *acx, struct ast_stmt *s) {
             acx->current_bb = cir_bb();
             ptrvec_push(acx->current_func->cfunc->bbs, acx->current_bb);
             l1 = acx->current_bb;
-            analyze_stmt(acx, s->ite.elze);
+            analyze_stmt(acx, s->ite.elze); // TODO: Handle this being NULL (I suspect the CFG will be FUBAR)
             i3 = INSN(BR, INSN_TRUE, NULL); // patch with l2
 
             acx->current_bb = cir_bb();
