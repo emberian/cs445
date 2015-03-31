@@ -36,7 +36,7 @@ static void update_loc(YYLTYPE *yylloc, char *yytxt){
 %%
 
 "{"(.|"\n")*"}" {  }
-"(*"(.|"\n")*"*)" {  }
+"(*"([^*]|"\n")*"*)" {  }
 "//".*          {  }
 [ \t\n]         {  }
 

@@ -111,7 +111,7 @@ struct ast_expr {
         struct ast_path *path;
         char *lit;
         struct ast_expr *addrof;
-        struct ast_path *deref;
+        struct ast_expr *deref;
 
         struct {
             struct ast_path *path;

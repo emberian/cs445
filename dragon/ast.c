@@ -34,7 +34,7 @@ void print_expr(struct ast_expr *e, int indent) {
 
         case EXPR_DEREF:
             puts("DEREF:");
-            print_path(e->deref, indent+INDSZ);
+            print_expr(e->deref, indent+INDSZ);
             puts("");
             break;
 
@@ -291,7 +291,7 @@ void free_expr(struct ast_expr *e) {
             break;
 
         case EXPR_DEREF:
-            free_path(e->deref);
+            free_expr(e->deref);
             break;
 
         case EXPR_IDX:
@@ -517,7 +517,7 @@ struct ast_expr *ast_expr(enum exprs tag, ...) {
             e->binary.right = va_arg(args, struct ast_expr *);
             break;
         case EXPR_DEREF:
-            e->deref = va_arg(args, struct ast_path *);
+            e->deref = va_arg(args, struct ast_expr *);
             break;
         case EXPR_IDX:
             e->idx.path = va_arg(args, struct ast_path *);

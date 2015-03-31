@@ -184,7 +184,7 @@ struct resu analyze_call(struct acx *acx, struct ast_path *p, struct list *args,
 
     if (args->length != pt->ty.func.args->length) {
         DIAG("%s arguments passed when calling ", args->length < pt->ty.func.args->length ? "not enough" : "too many");
-        stab_print_type(acx->st, pty, 0);
+        stab_print_type(acx->st, pty, 0); fflush(stdout);
         span_err("wanted %ld, given %ld", NULL, pt->ty.func.args->length, args->length);
     }
 
@@ -193,12 +193,12 @@ struct resu analyze_call(struct acx *acx, struct ast_path *p, struct list *args,
         struct resu *et = M(struct resu);
         *et = analyze_expr(acx, e);
         if (!stab_types_eq(acx->st, et->type, STAB_VAR(acx->st, (size_t) ft)->type)) {
-            DIAG("in "); stab_print_type(acx->st, pty, 0);
+            DIAG("in "); stab_print_type(acx->st, pty, 0); fflush(stdout);
             span_diag("type of argument %d doesn't match declaration;", NULL, i);
             DIAG("expected:\n");
-            INDENTE(INDSZ); stab_print_type(acx->st, STAB_VAR(acx->st, (size_t) ft)->type, INDSZ); DIAG("\n");
+            INDENTE(INDSZ); stab_print_type(acx->st, STAB_VAR(acx->st, (size_t) ft)->type, INDSZ); fflush(stdout); DIAG("\n");
             DIAG("found:\n");
-            INDENTE(INDSZ); stab_print_type(acx->st, et->type, INDSZ);
+            INDENTE(INDSZ); stab_print_type(acx->st, et->type, INDSZ); fflush(stdout);
         }
         ptrvec_push(irargs, YOLO et);
         i++;
@@ -276,7 +276,7 @@ struct resu analyze_expr(struct acx *acx, struct ast_expr *e) {
             }
             return retv;
         case EXPR_DEREF:
-            pathty = type_of_path(acx, e->deref);
+            pathty = type_of_path(acx, e->deref->path);
             st = STAB_TYPE(acx->st, pathty.type);
             if (st->ty.tag != TYPE_POINTER) {
                 span_err("tried to dereference non-pointer", NULL);
@@ -288,7 +288,11 @@ struct resu analyze_expr(struct acx *acx, struct ast_expr *e) {
             pathty = type_of_path(acx, e->idx.path);
             pt = STAB_TYPE(acx->st, pathty.type);
             if (pt->ty.tag != TYPE_ARRAY) {
-                span_err("tried to index non-array", NULL);
+                DIAG("tried to index non-array `");
+                print_path(e->idx.path, 0); fflush(stdout);
+                DIAG("` which has type ");
+                stab_print_type(acx->st, pathty.type, 0);
+                span_err("", NULL);
             }
             ety = analyze_expr(acx, e->idx.expr);
             // struct stab_type *et = STAB_TYPE(acx->st, ety);
@@ -332,10 +336,30 @@ struct resu analyze_expr(struct acx *acx, struct ast_expr *e) {
     }
 }
 
-void check_assignability(struct acx *acx, struct ast_expr *e) {
-    assert(e->tag == EXPR_PATH);
+struct ast_path *check_assignability(struct acx *acx, struct ast_expr *e) {
     // we're in the toplevel program, we're fine.
-    if (!acx->current_func) { return; }
+    if (!acx->current_func) { return NULL; }
+
+    struct ast_path *root;
+    struct ast_expr temp;
+    switch (e->tag) {
+        case EXPR_PATH:
+            root = e->path;
+            break;
+        case EXPR_IDX:
+            temp.tag = EXPR_PATH;
+            temp.path = e->path;
+            root = check_assignability(acx, &temp);
+            break;
+        case EXPR_DEREF:
+            root = check_assignability(acx, e->deref);
+            break;
+        default:
+            DIAG("tried to check_assignability of a bogon\n");
+            print_expr(e, 0);
+            abort();
+    }
+
 
     if (acx->current_func->ty.func.type == SUB_FUNCTION) {
         if (!stab_has_local_var(acx->st, e->path->components->inner.elt)) {
@@ -345,6 +369,8 @@ void check_assignability(struct acx *acx, struct ast_expr *e) {
     if (strcmp(acx->current_func->name, e->path->components->inner.elt) == 0) {
         acx->current_func->ty.func.ret_assigned = true;
     }
+
+    return root;
 }
 
 void analyze_stmt(struct acx *acx, struct ast_stmt *s) {
@@ -570,7 +596,7 @@ void analyze_subprog(struct acx *acx, struct ast_subdecl *s) {
 
     // now analyze the subprogram body.
     analyze_stmt(acx, s->body);
-    if (!acx->current_func->ty.func.ret_assigned) {
+    if (!acx->current_func->ty.func.ret_assigned && acx->current_func->ty.func.type == SUB_FUNCTION) {
         span_err("return value of %s not assigned", NULL, acx->current_func->name);
     }
 

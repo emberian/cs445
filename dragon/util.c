@@ -30,27 +30,23 @@ void list_append(struct node *a, struct node *b) {
     b->prev = a;
 }
 
-static void list_free_backward(struct node *a, void(*dtor)(void*)) {
-    if (!a) return;
-    struct node *p = a->prev;
-    if (a->elt) dtor(a->elt);
-    D(a);
-    list_free_backward(p, dtor);
-}
-
-static void list_free_forward(struct node *a, void(*dtor)(void*)) {
+static void node_free(struct node *a, void(*dtor)(void*)) {
     if (!a) return;
     struct node *p = a->next;
     if (a->elt) dtor(a->elt);
     D(a);
-    list_free_forward(p, dtor);
+    if (p) {
+        assert(p->prev == a);
+        node_free(p, dtor);
+    }
 }
 
 void list_free(struct list *a) {
-    if (!a) return;
-    list_free_backward(a->inner.prev, a->dtor);
-    list_free_forward(a->inner.next, a->dtor);
-    a->dtor(a->inner.elt);
+    if (!a || a->length == 0) return;
+    node_free(a->inner.next, a->dtor);
+    if (a->inner.elt) {
+        a->dtor(a->inner.elt);
+    }
     D(a);
 }
 
@@ -71,8 +67,8 @@ void list_add(struct list *a, void *elt) {
 
 void *list_pop(struct list *a) {
     if (!a || !a->last) return NULL;
-    void *last_elt = a->last->elt;
     struct node *last = a->last;
+    void *last_elt = last->elt;
     a->last = last->prev;
     a->last->next = NULL;
     D(last);

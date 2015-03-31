@@ -5,7 +5,6 @@
 #include "lexer.h"
 
 extern int yyerror(YYLTYPE *, struct ast_program **, int options, void *scanner, const char *s);
-
 %}
 
 %code requires {
@@ -157,7 +156,7 @@ standard_type : INTEGER { $$ = ast_type(TYPE_INTEGER); }
               ;
 
 subprogram_declarations : subprogram_declarations subprogram_declaration ';' { $$ = $1; list_add($$, $2); }
-                        | %empty                                              { $$ = list_empty(CB free_subprogram_decl); }
+                        | %empty                                             { $$ = list_empty(CB free_subprogram_decl); }
                         ;
 
 subprogram_declaration : FUNCTION ID arguments ':' standard_type ';'  subprogram_declarations
@@ -187,16 +186,16 @@ optional_statements : statement_list { $$ = ast_stmt(STMT_STMTS, $1); }
                     ;
 
 statement_list : statement                     { $$ = list_new($1, CB free_stmt); }
-               | statement_list ';' statement { $$ = $1; list_add($$, $3); }
+               | statement_list ';' statement  { $$ = $1; list_add($$, $3); }
                ;
 
 statement : lvalue ASSIGNOP expression                                { $$ = ast_stmt(STMT_ASSIGN, $1, $3);      }
           | procedure_statement
-          | compound_statement                                        { $$ = ast_stmt(STMT_STMTS, $1);           }
+          | compound_statement                                        { $$ = $1;                                 }
+          | IF expression THEN statement                              { $$ = ast_stmt(STMT_ITE, $2, $4, NULL);   }
           | IF expression THEN statement ELSE statement               { $$ = ast_stmt(STMT_ITE, $2, $4, $6);     }
-          | IF expression THEN statement                              { $$ = ast_stmt(STMT_ITE, $2, $4, NULL);     }
           | WHILE expression DO statement                             { $$ = ast_stmt(STMT_WDO, $2, $4);         }
-          | FOR ID ASSIGNOP expression TO expression DO statement ';' { $$ = ast_stmt(STMT_FOR, $2, $4, $6, $8); }
+          | FOR ID ASSIGNOP expression TO expression DO statement     { $$ = ast_stmt(STMT_FOR, $2, $4, $6, $8); }
           ;
 
 path : path '.' ID { $$ = $1; ast_path_append($$, $3); }
@@ -205,7 +204,7 @@ path : path '.' ID { $$ = $1; ast_path_append($$, $3); }
 
 lvalue : path                    { $$ = ast_expr(EXPR_PATH,  $1    ); }
        | path '[' expression ']' { $$ = ast_expr(EXPR_IDX,   $1, $3); }
-       | path '^'                { $$ = ast_expr(EXPR_DEREF, $1    ); }
+       | path '^'                { $$ = ast_expr(EXPR_DEREF, ast_expr(EXPR_PATH, $1)); }
        ;
 
 procedure_statement : path                         { $$ = ast_stmt(STMT_PROC, $1, NULL); }

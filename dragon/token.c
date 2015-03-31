@@ -19,6 +19,12 @@ void print_token(int tok, YYSTYPE *val) {
         case CHAR:
             puts("CHAR");
             break;
+        case FOR:
+            puts("FOR");
+            break;
+        case TO:
+            puts("TO");
+            break;
         case MOD:
             puts("MOD");
             break;

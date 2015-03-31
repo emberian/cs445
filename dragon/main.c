@@ -6,7 +6,9 @@
 
 #include "driver.h"
 
-static char *USAGE = "usage: comp [-lpinNC] <filename>";
+extern int yydebug;
+
+static char *USAGE = "usage: comp [-lpinNCd] <filename>";
 
 int main(int argc, char **argv) {
     if (argc < 2) {
@@ -42,6 +44,9 @@ int main(int argc, char **argv) {
                     break;
                 case 'C':
                     options |= NO_CODEGEN;
+                    break;
+                case 'd':
+                    yydebug = 1;
                     break;
                 default:
                     fprintf(stderr, "unknown flag: %c\n", *c);
