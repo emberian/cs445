@@ -17,6 +17,7 @@ DOES:
   ASSIGN
     DEREF:
       a
+
   TO
     x
   ASSIGN

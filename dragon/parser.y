@@ -134,7 +134,7 @@ identifier_list : ID                       { $$ = list_new($1, free); }
                 ;
 
 declarations : declarations VAR identifier_list ':' type ';' { $$ = $1; list_add($$, ast_decls($3, $5)); }
-             | %empty                                           { $$ = list_empty(CB free_decls); }
+             | %empty                                        { $$ = list_empty(CB free_decls); }
              ;
 
 type : standard_type

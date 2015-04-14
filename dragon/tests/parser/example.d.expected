@@ -8,12 +8,14 @@ AND VARIABLES:
     `x`
     `y`
 AND SUBPROGRAMS:
-  PROCEDURE WITH ARGUMENTS:
+  FUNCTION WITH ARGUMENTS:
     DECLARATION WITH TYPE:
       INTEGER
     OF NAMES:
       `a`
       `b`
+  RETURNING:
+    INTEGER
   WITH SUBPROGRAMS:
   AND VARIABLES
   DOES:
@@ -41,10 +43,10 @@ AND SUBPROGRAMS:
             RIGHT:
               b
 DOES:
-  APPLY `scanline` WITH:
+  APPLY `read` WITH:
     x
     y
-  APPLY `putall` WITH:
+  APPLY `writeln` WITH:
     APPLY `gcd`
     TO ARGS:
       x

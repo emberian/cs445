@@ -623,7 +623,7 @@ struct ast_type *ast_type(enum types tag, ...) {
         case TYPE_CHAR:
             break;
         default:
-            fprintf(stderr, "unkwown type type...\n");
+            fprintf(stderr, "unknown type type...\n");
             D(t);
             va_end(args);
             return NULL;

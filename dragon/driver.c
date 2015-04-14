@@ -69,6 +69,7 @@ void compile_input(char *program_source, size_t len, int options) {
     struct acx acx = analyze(program);
 
     if (options & DUMP_IR) {
+        puts("digraph { compound=true");
         struct ptrvec *v = acx.st->types;
         struct stab_type *t;
         func_print(acx.main, "<main>");
@@ -78,6 +79,7 @@ void compile_input(char *program_source, size_t len, int options) {
                 func_print(t->cfunc, t->name);
             }
         }
+        puts("}");
     }
 
     if (options & NO_CODEGEN) {

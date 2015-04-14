@@ -84,6 +84,7 @@ struct ptrvec *ptrvec_wcap(size_t, FREE_FUNC);
 size_t ptrvec_push(struct ptrvec *, void *);
 void *ptrvec_last(struct ptrvec *);
 void ptrvec_free(struct ptrvec *);
+struct ptrvec *ptrvec_new(FREE_FUNC, size_t, ...);
 
 /* Super simple, crappy chained hash table. */
 struct hash_table {

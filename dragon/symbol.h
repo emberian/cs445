@@ -9,9 +9,10 @@
 
 #define RESOLVE_FAILURE (-1)
 
-#define MAGIC_SCANLINE (-2)
-#define MAGIC_PUTALL (-3)
-#define MAGIC_BUILTIN (-4)
+#define MAGIC_READ (-2)
+#define MAGIC_READLN (-3)
+#define MAGIC_WRITE (-4)
+#define MAGIC_WRITELN (-5)
 
 #define INTEGER_TYPE_IDX 0
 #define REAL_TYPE_IDX 1
@@ -96,9 +97,9 @@ void stab_leave(struct stab *);
 struct stab *stab_new();
 void stab_free(struct stab *);
 
-void stab_add_decls(struct stab *, struct ast_decls *);
+void stab_add_decls(struct stab *, struct ast_decls *, bool);
 size_t stab_add_var(struct stab *st, char *name, size_t type, YYLTYPE *span, bool);
-void stab_add_func(struct stab *, char *, struct ast_type *, bool);
+void stab_add_func(struct stab *, char *, struct ast_type *);
 void stab_add_magic_func(struct stab *, int);
 void stab_add_type(struct stab *, char *, struct ast_type *);
 
@@ -123,7 +124,6 @@ void stab_print_type(struct stab *, size_t, int);
     if (idx == -1) {\
         span_err("resolution failure! %s `%s` not found", NULL, type, name);\
     } } while(0)
-
 #define CHKREST(i, n) CHKRES("type", n, i)
 #define CHKRESV(i, n) CHKRES("variable", n, i)
 #define CHKRESF(i, n) CHKRES("subprogram", n, i)

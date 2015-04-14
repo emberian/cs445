@@ -7,6 +7,6 @@ begin
 end;
 
 begin
-    scanline(x, y);
-    putall(gcd(x, y))
+    read(x, y);
+    writeln(gcd(x, y))
 end.

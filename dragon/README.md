@@ -5,8 +5,6 @@ For Clarkon University's CS445 course. A compiler of a subset of Pascal to
 
 # Known Deficiencies
 
-- On a syntax error, memory will be leaked for every empty list allocated in
-  an action for a grammar rule matching `%empty`.
 - On a non-syntax error, everything is leaked.
 - The compiler is somewhat inefficient, in that it is not structured as a
   single pass and does a fair bit of shuffling data between representations. It's

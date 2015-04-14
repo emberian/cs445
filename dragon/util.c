@@ -42,10 +42,12 @@ static void node_free(struct node *a, void(*dtor)(void*)) {
 }
 
 void list_free(struct list *a) {
-    if (!a || a->length == 0) return;
-    node_free(a->inner.next, a->dtor);
-    if (a->inner.elt) {
-        a->dtor(a->inner.elt);
+    if (!a) return;
+    if (a->length != 0) {
+        node_free(a->inner.next, a->dtor);
+        if (a->inner.elt) {
+            a->dtor(a->inner.elt);
+        }
     }
     D(a);
 }
@@ -79,6 +81,16 @@ void *list_pop(struct list *a) {
 void *list_last(struct list *a) {
     if (!a || !a->last) return NULL;
     return a->last->elt;
+}
+
+struct ptrvec *ptrvec_new(FREE_FUNC dtor, size_t count, ...) {
+    va_list args;
+    va_start(args, count);
+    struct ptrvec *v = ptrvec_wcap(count, dtor);
+    for (int i = 0; i < count; i++) {
+        ptrvec_push(v, va_arg(args, void *));
+    }
+    return v;
 }
 
 struct ptrvec *ptrvec_wcap(size_t cap, FREE_FUNC dtor) {

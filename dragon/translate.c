@@ -16,6 +16,7 @@ struct cir_func *cfunc_new(struct list *args) {
     r->args = args;
     r->entry = cir_bb();
     r->bbs = ptrvec_wcap(16, CB bb_free);
+    r->name = NULL;
     return r;
 }
 
@@ -36,8 +37,16 @@ struct insn *insn_new(enum cir_op op, ...) {
     switch (op) {
         case IRET:
         case INOT:
+            r->a = IREG(va_arg(args, struct insn *));
+            break;
         case ILD:
             r->a = IREG(va_arg(args, struct insn *));
+            r->b = ILIT(va_arg(args, int));
+            break;
+        case IST:
+            r->a = IREG(va_arg(args, struct insn *));
+            r->b = IREG(va_arg(args, struct insn *));
+            r->c = ILIT(va_arg(args, int));
             break;
         case IPHI:
         case ISIG:
@@ -59,18 +68,21 @@ struct insn *insn_new(enum cir_op op, ...) {
         case IMOD:
         case IAND:
         case IOR:
-        case IST:
         case ILT:
         case ILE:
         case IGT:
         case IGE:
         case IEQ:
         case INE:
-            r->a = IREG(va_arg(args, struct operand));
-            r->b = IREG(va_arg(args, struct operand));
+            r->a = va_arg(args, struct operand);
+            r->b = va_arg(args, struct operand);
             break;
         case ICALL:
             r->a = oper_new(OPER_FUNC, va_arg(args, struct cir_func *));
+            r->b = oper_new(OPER_ARGS, va_arg(args, struct ptrvec *));
+            break;
+        case IFCALL:
+            r->a = oper_new(OPER_SYM, va_arg(args, char *));
             r->b = oper_new(OPER_ARGS, va_arg(args, struct ptrvec *));
             break;
         default:
@@ -110,6 +122,9 @@ struct operand oper_new(enum operand_ty oty, ...) {
         case OPER_FUNC:
             o.func = va_arg(args, struct cir_func *);
             break;
+        case OPER_SYM:
+            o.sym = va_arg(args, char *);
+            break;
         default:
             fprintf(stderr, "unrecognized operand %d\n", o.tag);
     }
@@ -147,6 +162,7 @@ void insn_free(struct insn *i) {
         case IEQ:
         case INE:
         case ICALL:
+        case IFCALL:
             oper_free(i->a);
             oper_free(i->b);
             break;
@@ -171,155 +187,266 @@ void func_free(struct cir_func *f) {
 void oper_free(struct operand o) {
     if (o.tag == OPER_ARGS) {
         ptrvec_free(o.args);
+    } else if (o.tag == OPER_SYM) {
+        free(o.sym);
     }
     /* most operands are non-owning */
 }
 
 void func_print(struct cir_func *f, char *name) {
     int indent = 0;
-    printf("CIR_FUNC %p (%s)\n", f, name);
+    printf("subgraph clusterfunc_%p { shape=box label=\"%s\" color=black\n", f, name);
     if (f->args) {
-        printf("+ Arguments\n");
+        /*
         LFOREACH(struct ast_decls *d, f->args)
-            print_decls(d, indent+INDSZ);
+            printf("decl_%p[label=\"", d);
+            LFOREACH(char *name, d->names)
+                printf("%s,", name);
+            ENDLFOREACH;
+            printf("\b : ");
+            print_type(d->type, 0);
+            printf("\"];\n");
         ENDLFOREACH;
+        */
     }
-    printf("+ Body\n");
     bb_print(f->entry, indent);
+    printf("start_%p[label=\"start\" shape=parallelogram]; "
+           "start_%p -> clusterblock_%p_DUMMY[lhead=clusterblock_%p];",
+           f, f, f->entry, f->entry);
     for (int i = 0; i < f->bbs->length; i++) {
         bb_print(f->bbs->data[i], indent);
     }
-    printf("+ End\n");
+    printf("}\n");
+}
+
+static void oper_connect(struct insn *i, char *slot, struct operand o) {
+    switch (o.tag) {
+        case OPER_ILIT:
+        case OPER_BLIT:
+        case OPER_FLIT:
+        case OPER_SYM:
+        case OPER_FUNC:
+            break;
+        case OPER_REG:
+            printf("insn_%p:%s -> insn_%p[style=dotted];\n", i, slot, o.reg);
+            break;
+        case OPER_LABEL:
+            if (o.label) {
+                printf("insn_%p:%s -> clusterblock_%p_DUMMY [style=dashed lhead=clusterblock_%p];\n", i, slot, o.label, o.label);
+            }
+            break;
+        case OPER_ARGS:
+            if (o.args == NULL) break;
+            for (int j = 0; j < o.args->length; j++) {
+                printf("insn_%p:f%d -> insn_%p[style=dotted];\n", i, 3+j, ((struct resu*)o.args->data[j])->op);
+            }
+            break;
+        default:
+            break;
+    }
+}
+
+static void insn_print_connection(struct insn *i, int indent) {
+    if (!i) {
+        return;
+    }
+
+    bool print_a = true, print_b = false, print_c = false;
+
+    switch (i->op) {
+        case IRET:
+        case INOT:
+        case IALLOC:
+        case ILIT:
+        case IPHI:
+        case ISIG:
+            break;
+        case IBR:
+            print_b = true;
+            print_c = true;
+            break;
+        case ILD:
+        case IADD:
+        case ISUB:
+        case IMUL:
+        case IDIV:
+        case IMOD:
+        case IAND:
+        case IOR:
+        case IST:
+        case ILT:
+        case ILE:
+        case IGT:
+        case IGE:
+        case IEQ:
+        case INE:
+        case ICALL:
+        case IFCALL:
+            print_b = true;
+            break;
+        default:
+            fprintf(stderr, "unrecognized insn %d\n", i->op);
+    }
+
+    if (print_a) {
+        oper_connect(i, "f1", i->a);
+    }
+    if (print_b) {
+        oper_connect(i, "f2", i->b);
+    }
+    if (print_c) {
+        oper_connect(i, "f3", i->c);
+    }
 }
 
 void bb_print(struct cir_bb *b, int indent) {
-    INDENT; printf("Block %p\n", b);
+    printf("subgraph clusterblock_%p { shape=box label=\"BB %p\"\n", b, b);
+    printf("clusterblock_%p_DUMMY[shape=point style=invis];\n", b);
+    struct insn *prev = NULL;
     for (int i = 0; i < b->insns->length; i++) {
         struct insn *in = ((struct insn**)b->insns->data)[i];
         insn_print(in, indent+INDSZ);
+        if (prev) {
+            printf("insn_%p -> insn_%p;\n", prev, in);
+        }
+        prev = in;
+    }
+    puts("}");
+    for (int i = 0; i < b->insns->length; i++) {
+        struct insn *in = ((struct insn**)b->insns->data)[i];
+        insn_print_connection(in, indent+INDSZ);
     }
 }
 
 void insn_print(struct insn *i, int indent) {
-    INDENT;
+    printf("insn_%p[shape=record label=\"", i);
     if (!i) {
-        puts("(insn is nil)");
+        printf("nil?\"];");
         return;
     }
 
+    bool print_a = true, print_b = false, print_c = false;
+    bool print_args = false;
+
+    printf("<f0>");
     switch (i->op) {
         case IRET:
-            puts("RET");
-            oper_print(i->a, indent+INDSZ);
+            printf("RET");
             break;
         case INOT:
-            puts("NOT");
-            oper_print(i->a, indent+INDSZ);
+            printf("NOT");
             break;
         case IALLOC:
-            puts("ALLOC");
-            oper_print(i->a, indent+INDSZ);
+            printf("ALLOC");
             break;
         case ILIT:
-            puts("LIT");
-            oper_print(i->a, indent+INDSZ);
+            printf("LIT");
             break;
         case IPHI:
-            puts("PHI");
-            oper_print(i->a, indent+INDSZ);
+            printf("PHI");
             break;
         case ISIG:
-            puts("SIG");
-            oper_print(i->a, indent+INDSZ);
+            printf("SIG");
             break;
         case IBR:
-            puts("BR");
-            oper_print(i->a, indent+INDSZ);
-            oper_print(i->b, indent+INDSZ);
-            oper_print(i->c, indent+INDSZ);
+            printf("BR");
+            print_b = true;
+            print_c = true;
             break;
         case ILD:
-            puts("LD");
-            oper_print(i->a, indent+INDSZ);
-            oper_print(i->b, indent+INDSZ);
+            printf("LD");
+            print_b = true;
             break;
         case IADD:
-            puts("ADD");
-            oper_print(i->a, indent+INDSZ);
-            oper_print(i->b, indent+INDSZ);
+            printf("ADD");
+            print_b = true;
             break;
         case ISUB:
-            puts("SUB");
-            oper_print(i->a, indent+INDSZ);
-            oper_print(i->b, indent+INDSZ);
+            printf("SUB");
+            print_b = true;
             break;
         case IMUL:
-            puts("MUL");
-            oper_print(i->a, indent+INDSZ);
-            oper_print(i->b, indent+INDSZ);
+            printf("MUL");
+            print_b = true;
             break;
         case IDIV:
-            puts("DIV");
-            oper_print(i->a, indent+INDSZ);
-            oper_print(i->b, indent+INDSZ);
+            printf("DIV");
+            print_b = true;
             break;
         case IMOD:
-            puts("MOD");
-            oper_print(i->a, indent+INDSZ);
-            oper_print(i->b, indent+INDSZ);
+            printf("MOD");
+            print_b = true;
             break;
         case IAND:
-            puts("AND");
-            oper_print(i->a, indent+INDSZ);
-            oper_print(i->b, indent+INDSZ);
+            printf("AND");
+            print_b = true;
             break;
         case IOR:
-            puts("OR");
-            oper_print(i->a, indent+INDSZ);
-            oper_print(i->b, indent+INDSZ);
+            printf("OR");
+            print_b = true;
             break;
         case IST:
-            puts("ST");
-            oper_print(i->a, indent+INDSZ);
-            oper_print(i->b, indent+INDSZ);
+            printf("ST");
+            print_b = true;
             break;
         case ILT:
-            puts("LT");
-            oper_print(i->a, indent+INDSZ);
-            oper_print(i->b, indent+INDSZ);
+            printf("LT");
+            print_b = true;
             break;
         case ILE:
-            puts("LE");
-            oper_print(i->a, indent+INDSZ);
-            oper_print(i->b, indent+INDSZ);
+            printf("LE");
+            print_b = true;
             break;
         case IGT:
-            puts("GT");
-            oper_print(i->a, indent+INDSZ);
-            oper_print(i->b, indent+INDSZ);
+            printf("GT");
+            print_b = true;
             break;
         case IGE:
-            puts("GE");
-            oper_print(i->a, indent+INDSZ);
-            oper_print(i->b, indent+INDSZ);
+            printf("GE");
+            print_b = true;
             break;
         case IEQ:
-            puts("EQ");
-            oper_print(i->a, indent+INDSZ);
-            oper_print(i->b, indent+INDSZ);
+            printf("EQ");
+            print_b = true;
             break;
         case INE:
-            puts("NE");
-            oper_print(i->a, indent+INDSZ);
-            oper_print(i->b, indent+INDSZ);
+            printf("NE");
+            print_b = true;
             break;
         case ICALL:
-            puts("CALL");
-            oper_print(i->a, indent+INDSZ);
-            oper_print(i->b, indent+INDSZ);
+            printf("CALL");
+            print_b = true;
+            print_args = true;
+            break;
+        case IFCALL:
+            printf("FCALL");
+            print_b = true;
+            print_args = true;
             break;
         default:
             fprintf(stderr, "unrecognized insn %d\n", i->op);
+    }
+
+    if (print_a) {
+        printf("|<f1>");
+        oper_print(i->a, 0);
+        if (print_b) {
+            if (i->b.tag != OPER_ARGS) printf("|<f2>");
+            oper_print(i->b, 0);
+            if (print_c) {
+                printf("|<f3>");
+                oper_print(i->c, 0);
+            }
+        }
+    }
+
+    printf("\"];\n");
+
+    if (print_args) {
+        if (i->b.args == NULL) return;
+        for (int j = 0; j < i->b.args->length; j++) {
+            insn_print(((struct resu*)i->b.args->data[j])->op, indent);
+        }
     }
 }
 
@@ -327,27 +454,32 @@ void oper_print(struct operand o, int indent) {
     INDENT;
     switch (o.tag) {
         case OPER_ILIT:
-            printf("%ld\n", o.ilit);
+            printf("%ld", o.ilit);
             break;
         case OPER_BLIT:
-            printf("%s\n", o.blit ? "true" : "false");
+            printf("%s", o.blit ? "true" : "false");
             break;
         case OPER_FLIT:
-            printf("%f\n", o.flit);
-            break;
+            printf("%f", o.flit);
         case OPER_REG:
-            printf("<%p>\n", o.reg);
+            if (o.reg != NULL) printf(".");
             break;
         case OPER_LABEL:
-            printf("L<%p>\n", o.label);
-            break;
-        case OPER_ARGS:
-            printf("<args>\n");
+            if (o.label != NULL) printf(".");
             break;
         case OPER_FUNC:
-            printf("CIR_FUNC %p\n", o.func);
+            printf("fn %s", o.func->name);
+            break;
+        case OPER_ARGS:
+            if (o.args == NULL) break;
+            for (int i = 0; i < o.args->length; i++) {
+                printf("|<f%d>.", 3 + i);
+            }
+            break;
+        case OPER_SYM:
+            printf("sym %s", o.sym);
             break;
         default:
-            printf("unrecognized operand %d\n", o.tag);
+            printf("unrecognized operand %d", o.tag);
     }
 }

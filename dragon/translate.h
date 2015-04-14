@@ -13,7 +13,7 @@
 
 #define INSN(n, ...) (ptrvec_push(acx->current_bb->insns, insn_new(I ## n, __VA_ARGS__)), (struct insn*) ptrvec_last(acx->current_bb->insns))
 #define ILIT(n) (oper_new(OPER_ILIT, (int64_t)n))
-#define INSN_TRUE (oper_new(OPER_BLIT, true))
+#define INSN_TRUE (INSN(LIT, (oper_new(OPER_BLIT, true))))
 #define IARGS(n) (oper_new(OPER_ARGS, n))
 #define IFUNC(n) (oper_new(OPER_FUNC, n))
 #define IREG(n) (oper_new(OPER_REG, n))
@@ -23,6 +23,11 @@ struct stab;
 
 struct sizing {
     int32_t size, align;
+};
+
+struct resu {
+    size_t type;
+    struct insn *op;
 };
 
 struct rec_layout {
@@ -117,9 +122,10 @@ enum cir_op {
     INE,
     // call A with arguments from B
     ICALL,
+    // foreign call to a symbol named A with arguments from B
+    IFCALL,
     // "phony" instruction -- literal A
     ILIT,
-
     // PHI(...). Created by SSI conversion
     IPHI,
     // SIGMA(...). Created by SSI conversion
@@ -134,6 +140,7 @@ enum operand_ty {
     OPER_LABEL,
     OPER_ARGS,
     OPER_FUNC,
+    OPER_SYM,
 };
 
 struct operand {
@@ -145,6 +152,7 @@ struct operand {
         double flit;
         struct ptrvec *args;
         struct cir_func *func;
+        char *sym;
     };
     enum operand_ty tag;
 };
@@ -170,6 +178,7 @@ struct cir_func {
     struct list *args;
     struct ptrvec *bbs;
     struct cir_bb *entry;
+    char *name;
 };
 
 struct cir_func *cfunc_new(struct list *);

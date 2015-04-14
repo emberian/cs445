@@ -186,7 +186,7 @@ size_t stab_add_var(struct stab *st, char *name, size_t type, YYLTYPE *span, boo
 
     size_t id = ptrvec_push(st->vars, YOLO v);
     if (add_to_locals) {
-        v->loc = insn_new(IALLOC, oper_new(OPER_ILIT, STAB_TYPE(st, type)->size));
+        v->loc = insn_new(IALLOC, STAB_TYPE(st, type)->size);
         hash_insert(((struct stab_scope*)list_last(st->chain))->vars, YOLO name, YOLO id);
     }
 
@@ -311,7 +311,7 @@ size_t stab_resolve_type(struct stab *st, char *name, struct ast_type *ty) {
     }
 }
 
-void stab_add_decls(struct stab *st, struct ast_decls *decls) {
+void stab_add_decls(struct stab *st, struct ast_decls *decls, bool arguments) {
     // unconditionally add these to the local scope if they're not defined
     // locally. shadow upper names.
     size_t type = stab_resolve_type(st, strdup("<decls>"), decls->type);
@@ -319,22 +319,19 @@ void stab_add_decls(struct stab *st, struct ast_decls *decls) {
         if (stab_has_local_var(st, (char *)var)) {
             span_err("%s is already defined", NULL, var);
         } else {
-            stab_add_var(st, strdup(var), type, NULL, true);
+            stab_add_var(st, strdup(var), type, NULL, arguments);
         }
     ENDLFOREACH;
     //? stab_abort(st);
     return;
 }
 
-void stab_add_func(struct stab *st, char *name, struct ast_type *sig, bool is_builtin) {
+void stab_add_func(struct stab *st, char *name, struct ast_type *sig) {
     assert(sig->tag == TYPE_FUNCTION);
     if (stab_has_local_func(st, name)) {
         span_err("%s is already defined", NULL, name);
     } else {
         size_t type = stab_resolve_complex_type(st, name, sig);
-        if (is_builtin) {
-            STAB_TYPE(st, type)->magic = MAGIC_BUILTIN;
-        }
         hash_insert(((struct stab_scope *)list_last(st->chain))->funcs, YOLO name, YOLO type);
     }
     //? stab_abort(st);
@@ -342,7 +339,14 @@ void stab_add_func(struct stab *st, char *name, struct ast_type *sig, bool is_bu
 }
 
 void stab_add_magic_func(struct stab *st, int which) {
-    char *name = strdup(which == MAGIC_PUTALL ? "putall" : "scanline");
+    char *name;
+    switch (which) {
+        case MAGIC_READLN: name = strdup("readln"); break;
+        case MAGIC_READ: name = strdup("read"); break;
+        case MAGIC_WRITELN: name = strdup("writeln"); break;
+        case MAGIC_WRITE: name = strdup("write"); break;
+        default: abort(); break;
+    }
     struct stab_type *t = M(struct stab_type);
     t->defn = NULL;
     t->name = name;
