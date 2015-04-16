@@ -17,6 +17,7 @@ struct cir_func *cfunc_new(struct list *args) {
     r->entry = cir_bb();
     r->bbs = ptrvec_wcap(16, CB bb_free);
     r->name = NULL;
+    r->nest_depth = 1;
     return r;
 }
 
@@ -85,6 +86,9 @@ struct insn *insn_new(enum cir_op op, ...) {
             r->a = oper_new(OPER_SYM, va_arg(args, char *));
             r->b = oper_new(OPER_ARGS, va_arg(args, struct ptrvec *));
             break;
+        case ISYMREF:
+            r->a = oper_new(OPER_SYM, va_arg(args, char *));
+            break;
         default:
             fprintf(stderr, "unrecognized insn %d\n", r->op);
             abort();
@@ -139,6 +143,7 @@ void insn_free(struct insn *i) {
         case ILIT:
         case IPHI:
         case ISIG:
+        case ISYMREF:
             oper_free(i->a);
             break;
         case IBR:
@@ -195,7 +200,7 @@ void oper_free(struct operand o) {
 
 void func_print(struct cir_func *f, char *name) {
     int indent = 0;
-    printf("subgraph clusterfunc_%p { shape=box label=\"%s\" color=black\n", f, name);
+    printf("subgraph clusterfunc_%p { shape=box label=\"%s (%d)\" color=black\n", f, name, f->nest_depth);
     if (f->args) {
         /*
         LFOREACH(struct ast_decls *d, f->args)
@@ -260,6 +265,7 @@ static void insn_print_connection(struct insn *i, int indent) {
         case ILIT:
         case IPHI:
         case ISIG:
+        case ISYMREF:
             break;
         case IBR:
             print_b = true;
@@ -422,6 +428,9 @@ void insn_print(struct insn *i, int indent) {
             printf("FCALL");
             print_b = true;
             print_args = true;
+            break;
+        case ISYMREF:
+            printf("SYMREF");
             break;
         default:
             fprintf(stderr, "unrecognized insn %d\n", i->op);

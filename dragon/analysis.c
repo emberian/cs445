@@ -80,10 +80,16 @@ static struct resu type_of_path(struct acx *acx, struct ast_path *p) {
     CHKRESV(idx, c->inner.elt);
     if (!stab_has_local_var(st, c->inner.elt)) {
         STAB_VAR(st, idx)->captured = true;
+        struct insn *disp = INSN(SYMREF, strdup("@display@"));
+        // get the nesting depth of the var
+        int nestdepth = STAB_VAR(st, idx)->nestdepth;
+        struct insn *sframe = INSN(LD, INSN(ADD, IREG(disp), ILIT(nestdepth * ABI_POINTER_ALIGN)), ABI_POINTER_SIZE);
+        loc = INSN(ADD, IREG(sframe), ILIT(STAB_VAR(st, idx)->offset_into_stack_frame));
+    } else {
+        loc = STAB_VAR(st, idx)->loc;
     }
     t = STAB_VAR(st, idx)->type;
     ty = &STAB_TYPE(st, t)->ty;
-    loc = STAB_VAR(st, idx)->loc;
     // skip the first component of the path.
     bool first = true;
 
@@ -602,7 +608,12 @@ static void analyze_subprog(struct acx *acx, struct ast_subdecl *s) {
     acx->current_func = STAB_FUNC(acx->st, stab_resolve_func(acx->st, s->name));
     acx->current_func->cfunc->args = s->head->func.args;
     acx->current_func->cfunc->name = s->name;
+    acx->current_func->cfunc->nest_depth = saved->cfunc->nest_depth + 1;
     acx->current_bb = acx->current_func->cfunc->entry;
+
+    if(acx->current_func->cfunc->nest_depth > acx->deepest_nest) {
+        acx->deepest_nest = acx->current_func->cfunc->nest_depth;
+    }
 
     // add a new scope
     stab_enter(acx->st);
@@ -614,16 +625,16 @@ static void analyze_subprog(struct acx *acx, struct ast_subdecl *s) {
 
     // add formal arguments...
     LFOREACH(struct ast_decls *d, s->head->func.args)
-        stab_add_decls(acx->st, d, true);
+        stab_add_decls(acx->st, d, acx->current_func->cfunc->nest_depth, false);
     ENDLFOREACH;
 
     // add the variables...
     LFOREACH(struct ast_decls *d, s->decls)
-        stab_add_decls(acx->st, d, false);
+        stab_add_decls(acx->st, d, acx->current_func->cfunc->nest_depth, true);
     ENDLFOREACH;
 
     // add the return slot...
-    stab_add_var(acx->st, strdup(s->name), stab_resolve_type(acx->st, strdup("<retslot>"), s->head->func.retty), NULL, true);
+    stab_add_var(acx->st, strdup(s->name), stab_resolve_type(acx->st, strdup("<retslot>"), s->head->func.retty), NULL, acx->current_func->cfunc->nest_depth, true);
 
     HFOREACH(ent, ((struct stab_scope *)list_last(acx->st->chain))->vars)
         ptrvec_push(acx->current_bb->insns, STAB_VAR(acx->st, (size_t)ent->val)->loc);
@@ -655,6 +666,7 @@ static void analyze_subprog(struct acx *acx, struct ast_subdecl *s) {
 
 struct acx analyze(struct ast_program *prog) {
     struct acx acx;
+    acx.deepest_nest = 1;
     acx.st = stab_new();
 
     stab_enter(acx.st);
@@ -669,8 +681,15 @@ struct acx analyze(struct ast_program *prog) {
 
     // add the global variables...
     LFOREACH(struct ast_decls *d, prog->decls)
-        stab_add_decls(acx.st, d, true);
+        stab_add_decls(acx.st, d, 1, true);
     ENDLFOREACH;
+
+    struct stab_type t;
+    t.cfunc = cfunc_new(NULL);
+    t.name = "~!@__unassignable__@!~";
+    t.cfunc->name = t.name;
+    t.cfunc->nest_depth = 1;
+    acx.current_func = &t;
 
     // analyze each subprogram, taking care that it is in its own scope...
     // note that these all become globals
@@ -679,11 +698,6 @@ struct acx analyze(struct ast_program *prog) {
         analyze_subprog(&acx, d);
     ENDLFOREACH;
 
-    struct stab_type t;
-    t.cfunc = cfunc_new(NULL);
-    t.name = "~!@__unassignable__@!~";
-    t.cfunc->name = t.name;
-    acx.current_func = &t;
     acx.current_bb = t.cfunc->entry;
 
     HFOREACH(ent, ((struct stab_scope *)list_last(acx.st->chain))->vars)

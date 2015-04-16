@@ -12,7 +12,7 @@
 #define ABI_CLOSURE_ALIGN (ABI_POINTER_ALIGN * 2)
 
 #define INSN(n, ...) (ptrvec_push(acx->current_bb->insns, insn_new(I ## n, __VA_ARGS__)), (struct insn*) ptrvec_last(acx->current_bb->insns))
-#define ILIT(n) (oper_new(OPER_ILIT, (int64_t)n))
+#define ILIT(n) (oper_new(OPER_ILIT, (int64_t)(n)))
 #define INSN_TRUE (INSN(LIT, (oper_new(OPER_BLIT, true))))
 #define IARGS(n) (oper_new(OPER_ARGS, n))
 #define IFUNC(n) (oper_new(OPER_FUNC, n))
@@ -130,6 +130,9 @@ enum cir_op {
     IPHI,
     // SIGMA(...). Created by SSI conversion
     ISIG,
+    // Reference to symbol A, only used internally for accessing the
+    // "display".
+    ISYMREF,
 };
 
 enum operand_ty {
@@ -179,6 +182,7 @@ struct cir_func {
     struct ptrvec *bbs;
     struct cir_bb *entry;
     char *name;
+    int nest_depth;
 };
 
 struct cir_func *cfunc_new(struct list *);

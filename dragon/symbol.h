@@ -40,6 +40,7 @@ struct stab_scope {
     struct hash_table *funcs;
     // types in scope.
     struct hash_table *types;
+    int stack_frame_length;
     // non-owning caches. *not* complete, but populated on-demand.
     // struct hash_table *expr_ty_cache, *path_ty_cache;
 };
@@ -49,9 +50,11 @@ struct insn;
 struct stab_var {
     size_t type;
     char *name;
-    struct insn *loc; // alloca containing this variable
+    struct insn *loc; // alloca containing this variable if it's a local
     YYLTYPE *defn; // todo: annotate all AST nodes with a span...
     bool captured; // whether this variable needs to be lifted to a closure environment
+    int offset_into_stack_frame;
+    int nestdepth;
 };
 
 struct stab_resolved_type {
@@ -97,8 +100,8 @@ void stab_leave(struct stab *);
 struct stab *stab_new();
 void stab_free(struct stab *);
 
-void stab_add_decls(struct stab *, struct ast_decls *, bool);
-size_t stab_add_var(struct stab *st, char *name, size_t type, YYLTYPE *span, bool);
+void stab_add_decls(struct stab *, struct ast_decls *, int, bool);
+size_t stab_add_var(struct stab *st, char *name, size_t type, YYLTYPE *span, int, bool);
 void stab_add_func(struct stab *, char *, struct ast_type *);
 void stab_add_magic_func(struct stab *, int);
 void stab_add_type(struct stab *, char *, struct ast_type *);
