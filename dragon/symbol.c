@@ -178,15 +178,14 @@ size_t stab_resolve_var(struct stab *st, char *name) {
     return RESOLVE_FAILURE;
 }
 
-size_t stab_add_var(struct stab *st, char *name, size_t type, YYLTYPE *span, int nestdepth, bool add_to_locals) {
+size_t stab_add_var(struct stab *st, char *name, size_t type, YYLTYPE *span, bool add_to_locals) {
     struct stab_scope *sc = list_last(st->chain);
     struct stab_var *v = M(struct stab_var);
     v->type = type;
     v->defn = span;
     v->name = name;
-    v->offset_into_stack_frame = sc->stack_frame_length;
-    v->nestdepth = nestdepth;
-    sc->stack_frame_length += STAB_TYPE(st, type)->size;
+    v->captured = false;
+    v->disp_offset = -1;
 
     size_t id = ptrvec_push(st->vars, YOLO v);
     v->loc = insn_new(IALLOC, STAB_TYPE(st, type)->size);
@@ -253,7 +252,7 @@ static size_t stab_resolve_complex_type(struct stab *st, char *name, struct ast_
             LFOREACH(struct ast_decls *decl, ty->func.args)
                 LFOREACH(char *name, decl->names)
                     size_t id = stab_resolve_type(st, strdup(name), decl->type);
-                    list_add(t->ty.func.args, YOLO stab_add_var(st, strdup(name), id, NULL, 0, false));
+                    list_add(t->ty.func.args, YOLO stab_add_var(st, strdup(name), id, NULL, false));
                 ENDLFOREACH;
             ENDLFOREACH;
 
@@ -313,7 +312,7 @@ size_t stab_resolve_type(struct stab *st, char *name, struct ast_type *ty) {
     }
 }
 
-void stab_add_decls(struct stab *st, struct ast_decls *decls, int nestdepth, bool arguments) {
+void stab_add_decls(struct stab *st, struct ast_decls *decls, bool arguments) {
     // unconditionally add these to the local scope if they're not defined
     // locally. shadow upper names.
     size_t type = stab_resolve_type(st, strdup("<decls>"), decls->type);
@@ -321,7 +320,7 @@ void stab_add_decls(struct stab *st, struct ast_decls *decls, int nestdepth, boo
         if (stab_has_local_var(st, (char *)var)) {
             span_err("%s is already defined", NULL, var);
         } else {
-            stab_add_var(st, strdup(var), type, NULL, nestdepth, !arguments);
+            stab_add_var(st, strdup(var), type, NULL, !arguments);
         }
     ENDLFOREACH;
     //? stab_abort(st);

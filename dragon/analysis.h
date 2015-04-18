@@ -9,7 +9,7 @@ struct acx {
     struct cir_func *main;
     struct stab_type *current_func;
     struct cir_bb *current_bb;
-    int deepest_nest;
+    int disp_offset;
 };
 
 struct acx analyze(struct ast_program *);

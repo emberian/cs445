@@ -207,7 +207,7 @@ lvalue : path                    { $$ = ast_expr(EXPR_PATH,  $1    ); }
        | path '^'                { $$ = ast_expr(EXPR_DEREF, ast_expr(EXPR_PATH, $1)); }
        ;
 
-procedure_statement : path                         { $$ = ast_stmt(STMT_PROC, $1, NULL); }
+procedure_statement : path                         { $$ = ast_stmt(STMT_PROC, $1, list_empty(CB free)); }
                     | path '(' expression_list ')' { $$ = ast_stmt(STMT_PROC, $1, $3);   }
                     ;
 

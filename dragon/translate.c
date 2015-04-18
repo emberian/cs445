@@ -233,7 +233,9 @@ static void oper_connect(struct insn *i, char *slot, struct operand o) {
         case OPER_FUNC:
             break;
         case OPER_REG:
-            printf("insn_%p:%s -> insn_%p[style=dotted];\n", i, slot, o.reg);
+            if (o.reg) {
+                printf("insn_%p:%s -> insn_%p[style=dotted];\n", i, slot, o.reg);
+            }
             break;
         case OPER_LABEL:
             if (o.label) {
@@ -268,6 +270,7 @@ static void insn_print_connection(struct insn *i, int indent) {
         case ISYMREF:
             break;
         case IBR:
+        case IST:
             print_b = true;
             print_c = true;
             break;
@@ -279,7 +282,6 @@ static void insn_print_connection(struct insn *i, int indent) {
         case IMOD:
         case IAND:
         case IOR:
-        case IST:
         case ILT:
         case ILE:
         case IGT:
@@ -394,6 +396,7 @@ void insn_print(struct insn *i, int indent) {
         case IST:
             printf("ST");
             print_b = true;
+            print_c = true;
             break;
         case ILT:
             printf("LT");

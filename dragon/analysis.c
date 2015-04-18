@@ -79,12 +79,14 @@ static struct resu type_of_path(struct acx *acx, struct ast_path *p) {
     struct insn *loc;
     CHKRESV(idx, c->inner.elt);
     if (!stab_has_local_var(st, c->inner.elt)) {
-        STAB_VAR(st, idx)->captured = true;
+        if (!STAB_VAR(st, idx)->captured) {
+            STAB_VAR(st, idx)->captured = true;
+            STAB_VAR(st, idx)->disp_offset = acx->disp_offset++;
+        }
         struct insn *disp = INSN(SYMREF, strdup("@display@"));
-        // get the nesting depth of the var
-        int nestdepth = STAB_VAR(st, idx)->nestdepth;
-        struct insn *sframe = INSN(LD, INSN(ADD, IREG(disp), ILIT(nestdepth * ABI_POINTER_ALIGN)), ABI_POINTER_SIZE);
-        loc = INSN(ADD, IREG(sframe), ILIT(STAB_VAR(st, idx)->offset_into_stack_frame));
+        // get the display offset
+        int offset = STAB_VAR(st, idx)->disp_offset;
+        loc = INSN(LD, INSN(ADD, IREG(disp), ILIT(offset * ABI_POINTER_ALIGN)), ABI_POINTER_SIZE);
     } else {
         loc = STAB_VAR(st, idx)->loc;
     }
@@ -611,10 +613,6 @@ static void analyze_subprog(struct acx *acx, struct ast_subdecl *s) {
     acx->current_func->cfunc->nest_depth = saved->cfunc->nest_depth + 1;
     acx->current_bb = acx->current_func->cfunc->entry;
 
-    if(acx->current_func->cfunc->nest_depth > acx->deepest_nest) {
-        acx->deepest_nest = acx->current_func->cfunc->nest_depth;
-    }
-
     // add a new scope
     stab_enter(acx->st);
 
@@ -625,19 +623,20 @@ static void analyze_subprog(struct acx *acx, struct ast_subdecl *s) {
 
     // add formal arguments...
     LFOREACH(struct ast_decls *d, s->head->func.args)
-        stab_add_decls(acx->st, d, acx->current_func->cfunc->nest_depth, false);
+        stab_add_decls(acx->st, d, false);
     ENDLFOREACH;
 
     // add the variables...
     LFOREACH(struct ast_decls *d, s->decls)
-        stab_add_decls(acx->st, d, acx->current_func->cfunc->nest_depth, true);
+        stab_add_decls(acx->st, d, true);
     ENDLFOREACH;
 
     // add the return slot...
-    stab_add_var(acx->st, strdup(s->name), stab_resolve_type(acx->st, strdup("<retslot>"), s->head->func.retty), NULL, acx->current_func->cfunc->nest_depth, true);
+    stab_add_var(acx->st, strdup(s->name), stab_resolve_type(acx->st, strdup("<retslot>"), s->head->func.retty), NULL, true);
 
     HFOREACH(ent, ((struct stab_scope *)list_last(acx->st->chain))->vars)
-        ptrvec_push(acx->current_bb->insns, STAB_VAR(acx->st, (size_t)ent->val)->loc);
+        struct stab_var *v = STAB_VAR(acx->st, (size_t)ent->val);
+        ptrvec_push(acx->current_bb->insns, v->loc);
     ENDHFOREACH;
 
     // analyze each subprogram, taking care that it is in its own scope...
@@ -645,6 +644,24 @@ static void analyze_subprog(struct acx *acx, struct ast_subdecl *s) {
         stab_add_func(acx->st, strdup(d->name), d->head);
         analyze_subprog(acx, d);
     ENDLFOREACH;
+
+    // go over all our locals, and if they are captured, adding allocations
+    // for them, and:
+    // 1. Store a copy of the old access link for that local
+    // 2. Add the pointer to our local to the display for that local.
+    struct insn *disp = NULL;
+    HFOREACH(ent, ((struct stab_scope *)list_last(acx->st->chain))->vars)
+        struct stab_var *v = STAB_VAR(acx->st, (size_t)ent->val);
+        if (v->captured) {
+            if (disp == NULL) {
+                disp = INSN(SYMREF, strdup("@display@"));
+            }
+            struct insn *disp_loc = INSN(ADD, IREG(disp), ILIT(v->disp_offset * ABI_POINTER_ALIGN));
+            struct insn *save_loc = INSN(ALLOC, ABI_POINTER_SIZE);
+            INSN(ST, save_loc, INSN(LD, disp_loc), ABI_POINTER_SIZE);
+            INSN(ST, disp_loc, v->loc, ABI_POINTER_SIZE);
+        }
+    ENDHFOREACH;
 
     // now analyze the subprogram body.
     analyze_stmt(acx, s->body);
@@ -665,23 +682,24 @@ static void analyze_subprog(struct acx *acx, struct ast_subdecl *s) {
 }
 
 struct acx analyze(struct ast_program *prog) {
-    struct acx acx;
-    acx.deepest_nest = 1;
-    acx.st = stab_new();
+    struct acx acx_;
+    acx_.disp_offset = 0;
+    acx_.st = stab_new();
+    struct acx *acx = &acx_;
 
-    stab_enter(acx.st);
+    stab_enter(acx->st);
 
     // setup the global scope: import any names from libraries...
-    do_imports(&acx, prog);
+    do_imports(acx, prog);
 
     // add the global types...
     LFOREACH(struct ast_type_decl *t, prog->types)
-        stab_add_type(acx.st, t->name, t->type);
+        stab_add_type(acx->st, t->name, t->type);
     ENDLFOREACH;
 
     // add the global variables...
     LFOREACH(struct ast_decls *d, prog->decls)
-        stab_add_decls(acx.st, d, 1, true);
+        stab_add_decls(acx->st, d, true);
     ENDLFOREACH;
 
     struct stab_type t;
@@ -689,26 +707,40 @@ struct acx analyze(struct ast_program *prog) {
     t.name = "~!@__unassignable__@!~";
     t.cfunc->name = t.name;
     t.cfunc->nest_depth = 1;
-    acx.current_func = &t;
+    acx->current_func = &t;
 
     // analyze each subprogram, taking care that it is in its own scope...
     // note that these all become globals
     LFOREACH(struct ast_subdecl *d, prog->subprogs)
-        stab_add_func(acx.st, strdup(d->name), d->head);
-        analyze_subprog(&acx, d);
+        stab_add_func(acx->st, strdup(d->name), d->head);
+        analyze_subprog(acx, d);
     ENDLFOREACH;
 
-    acx.current_bb = t.cfunc->entry;
+    acx->current_bb = t.cfunc->entry;
 
-    HFOREACH(ent, ((struct stab_scope *)list_last(acx.st->chain))->vars)
-        ptrvec_push(acx.current_bb->insns, STAB_VAR(acx.st, (size_t)ent->val)->loc);
+    HFOREACH(ent, ((struct stab_scope *)list_last(acx->st->chain))->vars)
+        ptrvec_push(acx->current_bb->insns, STAB_VAR(acx->st, (size_t)ent->val)->loc);
+    ENDHFOREACH;
+
+    struct insn *disp = NULL;
+    HFOREACH(ent, ((struct stab_scope *)list_last(acx->st->chain))->vars)
+        struct stab_var *v = STAB_VAR(acx->st, (size_t)ent->val);
+        if (v->captured) {
+            if (disp == NULL) {
+                disp = INSN(SYMREF, strdup("@display@"));
+            }
+            struct insn *disp_loc = INSN(ADD, IREG(disp), ILIT(v->disp_offset * ABI_POINTER_ALIGN));
+            struct insn *save_loc = INSN(ALLOC, ABI_POINTER_SIZE);
+            INSN(ST, save_loc, INSN(LD, disp_loc, ABI_POINTER_SIZE), ABI_POINTER_SIZE);
+            INSN(ST, disp_loc, v->loc, ABI_POINTER_SIZE);
+        }
     ENDHFOREACH;
 
     // now analyze the program body.
-    analyze_stmt(&acx, prog->body);
+    analyze_stmt(acx, prog->body);
 
-    acx.main = t.cfunc;
+    acx->main = t.cfunc;
 
     // and we're done!
-    return acx;
+    return acx_;
 }
