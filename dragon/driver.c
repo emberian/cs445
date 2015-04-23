@@ -86,11 +86,13 @@ void compile_input(char *program_source, size_t len, int options) {
         free_program(program);
         stab_free(acx.st);
         func_free(acx.main);
+        ptrvec_free(acx.funcs);
         return;
     }
 
-    codegen(acx.main);
+    codegen(&acx);
     free_program(program);
     stab_free(acx.st);
     func_free(acx.main);
+    ptrvec_free(acx.funcs);
 }

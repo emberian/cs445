@@ -6,6 +6,14 @@
 #include "util.h"
 #include "ast.h"
 
+uint64_t hash_pointer(void *p) {
+    return hashpjw((void*)&p, sizeof(p));
+}
+
+bool compare_pointer(void *a, void *b) {
+    return a == b;
+}
+
 struct list *list_new(void *data, void (*dtor)(void*)) {
     struct list *l = list_empty(dtor);
     list_add(l, data);
@@ -121,6 +129,11 @@ size_t ptrvec_push(struct ptrvec *vec, void *elem) {
     ptrvec_reserve(vec, vec->length);
     vec->data[idx] = elem;
     return idx;
+}
+
+void *ptrvec_pop(struct ptrvec *vec) {
+    size_t idx = vec->length--;
+    return vec->data[idx];
 }
 
 void *ptrvec_last(struct ptrvec *vec) {

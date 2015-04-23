@@ -9,6 +9,7 @@ struct acx {
     struct cir_func *main;
     struct stab_type *current_func;
     struct cir_bb *current_bb;
+    struct ptrvec *funcs;
     int disp_offset;
 };
 

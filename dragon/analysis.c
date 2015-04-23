@@ -83,7 +83,7 @@ static struct resu type_of_path(struct acx *acx, struct ast_path *p) {
             STAB_VAR(st, idx)->captured = true;
             STAB_VAR(st, idx)->disp_offset = acx->disp_offset++;
         }
-        struct insn *disp = INSN(SYMREF, strdup("@display@"));
+        struct insn *disp = INSN(SYMREF, strdup("display@"));
         // get the display offset
         int offset = STAB_VAR(st, idx)->disp_offset;
         loc = INSN(LD, INSN(ADD, IREG(disp), ILIT(offset * ABI_POINTER_ALIGN)), ABI_POINTER_SIZE);
@@ -134,22 +134,22 @@ static void analyze_magic(struct acx *acx, int which, struct list *args) {
             char *callit;
             switch (r->type) {
                 case INTEGER_TYPE_IDX:
-                    callit = "@write_integer@";
+                    callit = "write_integer@";
                     break;
                 case REAL_TYPE_IDX:
-                    callit = "@write_real@";
+                    callit = "write_real@";
                     break;
                 case STRING_TYPE_IDX:
-                    callit = "@write_string@";
+                    callit = "write_string@";
                     break;
                 case BOOLEAN_TYPE_IDX:
-                    callit = "@write_bool@";
+                    callit = "write_bool@";
                     break;
                 case CHAR_TYPE_IDX:
-                    callit = "@write_char@";
+                    callit = "write_char@";
                     break;
                 case VOID_TYPE_IDX:
-                    callit = "@write_void@";
+                    callit = "write_void@";
                     break;
                 default:
                     span_err("argument of unprintable type passed to write/ln", NULL);
@@ -160,7 +160,7 @@ static void analyze_magic(struct acx *acx, int which, struct list *args) {
         ENDLFOREACH;
         // it's fine, putall can take anything.
         if (which == MAGIC_WRITELN) {
-            INSN(FCALL, strdup("@write_newline@"), NULL);
+            INSN(FCALL, strdup("write_newline@"), NULL);
         }
     } else if (which == MAGIC_READ || which == MAGIC_READLN) {
         // needs lvalues.
@@ -175,22 +175,22 @@ static void analyze_magic(struct acx *acx, int which, struct list *args) {
             char *callit;
             switch (r->type) {
                 case INTEGER_TYPE_IDX:
-                    callit = "@read_integer@";
+                    callit = "read_integer@";
                     break;
                 case REAL_TYPE_IDX:
-                    callit = "@read_real@";
+                    callit = "read_real@";
                     break;
                 case STRING_TYPE_IDX:
-                    callit = "@read_string@";
+                    callit = "read_string@";
                     break;
                 case BOOLEAN_TYPE_IDX:
-                    callit = "@read_bool@";
+                    callit = "read_bool@";
                     break;
                 case CHAR_TYPE_IDX:
-                    callit = "@read_char@";
+                    callit = "read_char@";
                     break;
                 case VOID_TYPE_IDX:
-                    callit = "@read_void@";
+                    callit = "read_void@";
                     break;
                 default:
                     span_err("argument of unprintable type passed to write/ln", NULL);
@@ -612,6 +612,7 @@ static void analyze_subprog(struct acx *acx, struct ast_subdecl *s) {
     acx->current_func->cfunc->name = s->name;
     acx->current_func->cfunc->nest_depth = saved->cfunc->nest_depth + 1;
     acx->current_bb = acx->current_func->cfunc->entry;
+    ptrvec_push(acx->funcs, acx->current_func->cfunc);
 
     // add a new scope
     stab_enter(acx->st);
@@ -654,7 +655,7 @@ static void analyze_subprog(struct acx *acx, struct ast_subdecl *s) {
         struct stab_var *v = STAB_VAR(acx->st, (size_t)ent->val);
         if (v->captured) {
             if (disp == NULL) {
-                disp = INSN(SYMREF, strdup("@display@"));
+                disp = INSN(SYMREF, strdup("display@"));
             }
             struct insn *disp_loc = INSN(ADD, IREG(disp), ILIT(v->disp_offset * ABI_POINTER_ALIGN));
             struct insn *save_loc = INSN(ALLOC, ABI_POINTER_SIZE);
@@ -685,6 +686,7 @@ struct acx analyze(struct ast_program *prog) {
     struct acx acx_;
     acx_.disp_offset = 0;
     acx_.st = stab_new();
+    acx_.funcs = ptrvec_wcap(8, CB dummy_free);
     struct acx *acx = &acx_;
 
     stab_enter(acx->st);
@@ -704,7 +706,7 @@ struct acx analyze(struct ast_program *prog) {
 
     struct stab_type t;
     t.cfunc = cfunc_new(NULL);
-    t.name = "~!@__unassignable__@!~";
+    t.name = "unassignable@";
     t.cfunc->name = t.name;
     t.cfunc->nest_depth = 1;
     acx->current_func = &t;

@@ -170,6 +170,7 @@ enum cir_ty {
 struct insn {
     enum cir_op op;
     enum cir_ty ty;
+    bool codegened;
     struct operand a, b, c;
 };
 
@@ -183,6 +184,7 @@ struct cir_func {
     struct cir_bb *entry;
     char *name;
     int nest_depth;
+    int frame_size;
 };
 
 struct cir_func *cfunc_new(struct list *);

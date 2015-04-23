@@ -29,6 +29,7 @@ struct cir_bb *cir_bb() {
 
 struct insn *insn_new(enum cir_op op, ...) {
     struct insn *r = M(struct insn);
+    r->codegened = false;
     va_list args;
 
     va_start(args, op);

@@ -80,6 +80,7 @@ struct ptrvec {
     FREE_FUNC dtor;
 };
 
+void *ptrvec_pop(struct ptrvec *vec);
 struct ptrvec *ptrvec_wcap(size_t, FREE_FUNC);
 size_t ptrvec_push(struct ptrvec *, void *);
 void *ptrvec_last(struct ptrvec *);
@@ -113,6 +114,8 @@ void *hash_lookup(struct hash_table *, void *);
 void hash_insert(struct hash_table *, void *, void *);
 void hash_free(struct hash_table *);
 uint64_t hashpjw(char *, size_t);
+uint64_t hash_pointer(void *);
+bool compare_pointer(void *, void *);
 
 /* compiler-specific stuff, remove if copying */
 
