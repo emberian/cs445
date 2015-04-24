@@ -61,7 +61,7 @@ static void do_imports(struct acx *acx, struct ast_program *prog) {
 }
 
 // return the type of a path, and the instruction computing its address.
-static struct resu type_of_path(struct acx *acx, struct ast_path *p) {
+static struct resu type_of_path(struct acx *acx, struct ast_path *p, bool compute_rvalue) {
     // for the first component in the list, check for a variable with that
     // name. if its type is TYPE_RECORD, check its fields for that name. if it
     // isn't a record, error. if it doesn't have a field with that name,
@@ -119,18 +119,22 @@ static struct resu type_of_path(struct acx *acx, struct ast_path *p) {
         }
     ENDLFOREACH;
 
-    res.op = loc;
+    if (compute_rvalue) {
+        res.op = INSN(LD, loc, STAB_TYPE(st, t)->size);
+    } else {
+        res.op = loc;
+    }
     res.type = t;
     return res;
 }
 
-static struct resu analyze_expr(struct acx *, struct ast_expr *e);
+static struct resu analyze_expr(struct acx *, struct ast_expr *e, bool compute_rvalue);
 
 static void analyze_magic(struct acx *acx, int which, struct list *args) {
     if (which == MAGIC_WRITELN || which == MAGIC_WRITE) {
         LFOREACH(struct ast_expr *e, args)
             struct resu *r = M(struct resu);
-            *r = analyze_expr(acx, e);
+            *r = analyze_expr(acx, e, false);
             char *callit;
             switch (r->type) {
                 case INTEGER_TYPE_IDX:
@@ -171,7 +175,7 @@ static void analyze_magic(struct acx *acx, int which, struct list *args) {
                 span_err("but read/ln must be called with lvalues", NULL);
             }
             struct resu *r = M(struct resu);
-            *r = analyze_expr(acx, e); // this will be either an ALLOC or an address computation.
+            *r = analyze_expr(acx, e, false); // this will be either an ALLOC or an address computation.
             char *callit;
             switch (r->type) {
                 case INTEGER_TYPE_IDX:
@@ -236,7 +240,7 @@ static struct resu analyze_call(struct acx *acx, struct ast_path *p, struct list
     int i = 0;
     LFOREACH2(struct ast_expr *e, void *ft, args, pt->ty.func.args)
         struct resu *et = M(struct resu);
-        *et = analyze_expr(acx, e);
+        *et = analyze_expr(acx, e, true);
         if (!stab_types_eq(acx->st, et->type, STAB_VAR(acx->st, (size_t) ft)->type)) {
             DIAG("in "); stab_print_type(acx->st, pty, 0); fflush(stdout);
             span_diag("type of argument %d doesn't match declaration;", NULL, i);
@@ -254,7 +258,7 @@ static struct resu analyze_call(struct acx *acx, struct ast_path *p, struct list
     return retv;
 }
 
-static struct resu analyze_expr(struct acx *acx, struct ast_expr *e) {
+static struct resu analyze_expr(struct acx *acx, struct ast_expr *e, bool compute_rvalue) {
     struct resu lty, rty, ety, retv, pathty;
     struct stab_resolved_type t;
     struct stab_type *n, *pt, *st;
@@ -264,8 +268,8 @@ static struct resu analyze_expr(struct acx *acx, struct ast_expr *e) {
         case EXPR_APP:
             return analyze_call(acx, e->apply.name, e->apply.args);
         case EXPR_BIN:
-            lty = analyze_expr(acx, e->binary.left);
-            rty = analyze_expr(acx, e->binary.right);
+            lty = analyze_expr(acx, e->binary.left, true);
+            rty = analyze_expr(acx, e->binary.right, true);
             if (lty.type != rty.type) {
                 span_diag("left:", NULL);
                 print_expr(e->binary.left, INDSZ);
@@ -324,7 +328,7 @@ static struct resu analyze_expr(struct acx *acx, struct ast_expr *e) {
             }
             return retv;
         case EXPR_DEREF:
-            pathty = type_of_path(acx, e->deref->path);
+            pathty = type_of_path(acx, e->deref->path, false);
             st = STAB_TYPE(acx->st, pathty.type);
             if (st->ty.tag != TYPE_POINTER) {
                 span_err("tried to dereference non-pointer", NULL);
@@ -333,7 +337,7 @@ static struct resu analyze_expr(struct acx *acx, struct ast_expr *e) {
             retv.op = INSN(LD, pathty.op, size_of_type(acx, pathty.type));
             return retv;
         case EXPR_IDX:
-            pathty = type_of_path(acx, e->idx.path);
+            pathty = type_of_path(acx, e->idx.path, false);
             pt = STAB_TYPE(acx->st, pathty.type);
             if (pt->ty.tag != TYPE_ARRAY) {
                 DIAG("tried to index non-array `");
@@ -342,7 +346,7 @@ static struct resu analyze_expr(struct acx *acx, struct ast_expr *e) {
                 stab_print_type(acx->st, pathty.type, 0);
                 span_err("", NULL);
             }
-            ety = analyze_expr(acx, e->idx.expr);
+            ety = analyze_expr(acx, e->idx.expr, true);
             // struct stab_type *et = STAB_TYPE(acx->st, ety);
             if (ety.type != INTEGER_TYPE_IDX) {
                 span_err("tried to index array with non-integer", NULL);
@@ -355,10 +359,9 @@ static struct resu analyze_expr(struct acx *acx, struct ast_expr *e) {
             retv.op = INSN(LIT, ILIT(atoi(e->lit)));
             return retv;
         case EXPR_PATH:
-            // always an lvalue, compute address
-            return type_of_path(acx, e->path);
+            return type_of_path(acx, e->path, compute_rvalue);
         case EXPR_UN:
-            ety = analyze_expr(acx, e->unary.expr);
+            ety = analyze_expr(acx, e->unary.expr, true);
             if (e->unary.op != NOT && (ety.type != INTEGER_TYPE_IDX || ety.type != REAL_TYPE_IDX)) {
                 span_err("tried to apply unary +/- to a non-number", NULL);
             } else if (ety.type != BOOLEAN_TYPE_IDX) {
@@ -367,7 +370,7 @@ static struct resu analyze_expr(struct acx *acx, struct ast_expr *e) {
             retv.type = ety.type;
             return retv;
         case EXPR_ADDROF:
-            ety = analyze_expr(acx, e->addrof);
+            ety = analyze_expr(acx, e->addrof, false);
             t.tag = TYPE_POINTER;
             t.pointer = ety.type;
             n = M(struct stab_type);
@@ -430,10 +433,10 @@ static void analyze_stmt(struct acx *acx, struct ast_stmt *s) {
 
     switch (s->tag) {
         case STMT_ASSIGN:
-            lty = analyze_expr(acx, s->assign.lvalue);
+            lty = analyze_expr(acx, s->assign.lvalue, false);
             check_assignability(acx, s->assign.lvalue);
 
-            rty = analyze_expr(acx, s->assign.rvalue);
+            rty = analyze_expr(acx, s->assign.rvalue, true);
             if (!stab_types_eq(acx->st, rty.type, lty.type)) {
                 span_err("cannot assign incompatible type", NULL);
             }
@@ -441,8 +444,8 @@ static void analyze_stmt(struct acx *acx, struct ast_stmt *s) {
             break;
 
         case STMT_FOR:
-            sty = analyze_expr(acx, s->foor.start);
-            ety = analyze_expr(acx, s->foor.end);
+            sty = analyze_expr(acx, s->foor.start, true);
+            ety = analyze_expr(acx, s->foor.end, true);
             if (sty.type != INTEGER_TYPE_IDX) {
                 span_err("type of start not integer", NULL);
             } else if (ety.type != INTEGER_TYPE_IDX) {
@@ -509,7 +512,7 @@ static void analyze_stmt(struct acx *acx, struct ast_stmt *s) {
             break;
 
         case STMT_ITE:
-            cty = analyze_expr(acx, s->ite.cond);
+            cty = analyze_expr(acx, s->ite.cond, true);
             if (cty.type != BOOLEAN_TYPE_IDX) {
                 span_err("type of if condition not boolean", NULL);
             }
@@ -584,7 +587,7 @@ static void analyze_stmt(struct acx *acx, struct ast_stmt *s) {
             ptrvec_push(acx->current_func->cfunc->bbs, acx->current_bb);
             l0 = acx->current_bb;
 
-            cty = analyze_expr(acx, s->wdo.cond);
+            cty = analyze_expr(acx, s->wdo.cond, true);
 
             i1 = INSN(BR, cty.op, NULL, NULL); // patch with l1, l2
 

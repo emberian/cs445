@@ -5,7 +5,7 @@
 #include <stdio.h>
 #include <stdbool.h>
 
-#define M(ty) ((ty*)malloc(sizeof(ty)))
+#define M(ty) ((ty*)calloc(1, sizeof(ty)))
 #define D(ptr) (free(ptr))
 #define YOLO (void*)
 #define CB (void (*)(void*))

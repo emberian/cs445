@@ -24,19 +24,18 @@ static void codegen_oper(struct ccx *ccx, struct operand operand, bool from_outs
 }
 
 static void codegen_insn(struct ccx *ccx, struct insn *i, bool from_outside) {
-    printf("Doing codegen for insn %p\n", i);
-    if (from_outside && i->codegened) return;
+    printf("; Doing codegen for insn %p\n", i);
+    if (from_outside && (i->codegened || i->op == IALLOC)) return;
     i->codegened = true;
     switch (i->op) {
         case IRET:
-            printf("mov rax, [rax]\nmov [rbp], rax\nmov rsp, rbp\nsub rsp, %d\nret\n", ccx->retp_offset);
+            printf("mov rax, [rax]\nmov [rbp], rax\\n", ccx->retp_offset);
             break;
         case INOT:
             codegen_oper(ccx, i->a, false);
             printf("not rax\n");
             break;
         case IALLOC:
-            printf("Looking up alloc pointer %p\n", i);
             printf("mov rax, rbp\nsub rax, %d\n", *(int*)hash_lookup(ccx->alloc_offsets, i));
             break;
         case ILIT:
@@ -51,8 +50,13 @@ static void codegen_insn(struct ccx *ccx, struct insn *i, bool from_outside) {
             printf("cmp rax, 1\nje .L%p\njmp .L%p\n", i->b.label, i->c.label);
             break;
         case ILD:
-            codegen_oper(ccx, i->a, false);
-            printf("push [rax]\n");
+            if (i->a.tag == OPER_REG && i->a.reg->op == IALLOC) {
+                i->a.reg->codegened = true;
+                printf("mov rax, [rbp-%d]\n", *(int*)hash_lookup(ccx->alloc_offsets, i->a.reg));
+            } else {
+                codegen_oper(ccx, i->a, false);
+                printf("push [rax]\n");
+            }
             break;
         case IADD:
             printf("push rbx\n");
@@ -118,11 +122,17 @@ static void codegen_insn(struct ccx *ccx, struct insn *i, bool from_outside) {
             printf("or rax, rbx\npop rbx\n");
             break;
         case IST:
-            printf("push rbx\n");
-            codegen_oper(ccx, i->a, false);
-            printf("mov rbx, rax\n");
-            codegen_oper(ccx, i->b, false);
-            printf("mov [rbx], rax\npop rbx\n");
+            if (i->a.tag == OPER_REG && i->a.reg->op == IALLOC) {
+                i->a.reg->codegened = true;
+                codegen_oper(ccx, i->b, false);
+                printf("mov [rbp-%d], rax\n", *(int*)hash_lookup(ccx->alloc_offsets, i->a.reg));
+            } else {
+                printf("push rbx\n");
+                codegen_oper(ccx, i->a, false);
+                printf("mov rbx, rax\n");
+                codegen_oper(ccx, i->b, false);
+                printf("mov [rbx], rax\npop rbx\n");
+            }
             break;
         case ILT:
             printf("push rbx\n");
@@ -185,9 +195,12 @@ no_args:
 
 static void codegen_bb(struct ccx *ccx, struct cir_bb *bb) {
     printf(".L%p:\n", bb);
+    /*
     for (int i = bb->insns->length - 1; i >= 0; i--) {
-        // why do we go backwards? with codegen_insn being recursive, this
-        // approximates the required execution order.
+        codegen_insn(ccx, bb->insns->data[i], true);
+    }
+    */
+    for (int i = 0; i < bb->insns->length; i++) {
         codegen_insn(ccx, bb->insns->data[i], true);
     }
 }
@@ -204,7 +217,7 @@ static void codegen_func(struct acx *acx, struct cir_func *f) {
         int *local_offset_from_bp = M(int);
         *local_offset_from_bp = offset_from_bp;
         struct insn *i = STAB_VAR(acx->st, (size_t)arg)->loc;
-        offset_from_bp += i->b.ilit;
+        offset_from_bp += i->a.ilit;
         hash_insert(ccx.alloc_offsets, i, local_offset_from_bp);
     ENDLFOREACH;
 
@@ -220,7 +233,7 @@ skip_args:
             if (i->op == IALLOC) {
                 int *local_offset_from_bp = M(int);
                 *local_offset_from_bp = offset_from_bp;
-                offset_from_bp += i->b.ilit;
+                offset_from_bp += i->a.ilit;
                 hash_insert(ccx.alloc_offsets, i, local_offset_from_bp);
             }
         }
@@ -232,12 +245,17 @@ skip_args:
     for (int i = 0; i < f->bbs->length; i++) {
         codegen_bb(&ccx, f->bbs->data[i]);
     }
+
+    // put the stack pointer back where it belongs,
+    printf("add rsp, %d\n", offset_from_bp - ccx.retp_offset + ABI_POINTER_SIZE);
+    printf("ret\n");
+    hash_free(ccx.alloc_offsets);
 }
 
 void codegen(struct acx *acx) {
-    printf("--- ASM LISTING ---\n");
+    printf(";--- ASM LISTING ---\n");
     printf("display@: resq %d\n", acx->disp_offset * ABI_POINTER_ALIGN);
-    printf("global _start\n_start: call func_%p@\n", acx->main);
+    printf("global _start\n_start:\nmov rbp, rsp\ncall func_%p@\nmov rax, 60\nxor rdi, rdi\nsyscall\n", acx->main);
     codegen_func(acx, acx->main);
     for (int i = 0; i < acx->funcs->length; i++) {
         codegen_func(acx, acx->funcs->data[i]);

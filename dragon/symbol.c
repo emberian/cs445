@@ -249,13 +249,10 @@ static size_t stab_resolve_complex_type(struct stab *st, char *name, struct ast_
             t->ty.func.ret_assigned = false;
             t->magic = 0;
 
-            char *oname = name;
-
             LFOREACH(struct ast_decls *decl, ty->func.args)
                 LFOREACH(char *name, decl->names)
                     size_t id = stab_resolve_type(st, strdup(name), decl->type);
                     list_add(t->ty.func.args, YOLO stab_add_var(st, strdup(name), id, NULL, false));
-                    printf("Added argument %d to func %s\n", list_last(t->ty.func.args), oname);
                 ENDLFOREACH;
             ENDLFOREACH;
 
