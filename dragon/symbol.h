@@ -50,10 +50,10 @@ struct insn;
 struct stab_var {
     size_t type;
     char *name;
-    struct insn *loc; // alloca containing this variable if it's a local
     YYLTYPE *defn; // todo: annotate all AST nodes with a span...
-    bool captured; // whether this variable needs to be lifted to a closure environment
     int disp_offset;
+    int stack_base_offset;
+    bool captured; // whether this variable needs to be lifted to a closure environment
 };
 
 struct stab_resolved_type {

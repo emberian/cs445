@@ -178,7 +178,7 @@ size_t stab_resolve_var(struct stab *st, char *name) {
     return RESOLVE_FAILURE;
 }
 
-size_t stab_add_var(struct stab *st, char *name, size_t type, YYLTYPE *span, bool add_to_locals) {
+size_t stab_add_var(struct stab *st, char *name, size_t type, YYLTYPE *span, int *curr_var_offset, bool add_to_locals) {
     struct stab_scope *sc = list_last(st->chain);
     struct stab_var *v = M(struct stab_var);
     v->type = type;
@@ -186,10 +186,11 @@ size_t stab_add_var(struct stab *st, char *name, size_t type, YYLTYPE *span, boo
     v->name = name;
     v->captured = false;
     v->disp_offset = -1;
+    v->stack_base_offset = *curr_var_offset;
+    // todo: alignment.
+    *curr_var_offset += STAB_TYPE(st, type)->size;
 
     size_t id = ptrvec_push(st->vars, YOLO v);
-    v->loc = insn_new(IALLOC, STAB_TYPE(st, type)->size);
-    hash_insert(sc->vars, YOLO name, YOLO id);
 
     return id;
 }

@@ -506,6 +506,8 @@ struct ast_expr *ast_expr(enum exprs tag, ...) {
 
     struct ast_expr *e = M(struct ast_expr);
     e->tag = tag;
+    e->left_child = false;
+    e->ershov_number = 0;
     switch (tag) {
         case EXPR_APP:
             e->apply.name = va_arg(args, struct ast_path *);
@@ -515,26 +517,44 @@ struct ast_expr *ast_expr(enum exprs tag, ...) {
             e->binary.left = va_arg(args, struct ast_expr *);
             e->binary.op = va_arg(args, enum yytokentype);
             e->binary.right = va_arg(args, struct ast_expr *);
+            if (e->binary.right->left_child == true) {
+                e->binary.right->left_child = false;
+                e->binary.right->ershov_number--;
+            }
+            int l = e->binary.left->ershov_number, e->binary.right->ershov_number;
+            if (l == r) {
+                e->ershov_number = l + 1;
+            } else {
+                e->ershov_number = l > r ? l : r;
+            }
             break;
         case EXPR_DEREF:
             e->deref = va_arg(args, struct ast_expr *);
+            e->ershov_number = e->deref->ershov_number;
             break;
         case EXPR_IDX:
             e->idx.path = va_arg(args, struct ast_path *);
             e->idx.expr = va_arg(args, struct ast_expr *);
+            e->ershov_number = e->deref->ershov_number;
             break;
         case EXPR_LIT:
             e->lit = va_arg(args, char *);
+            e->ershov_number = 1;
+            e->left_child = true;
             break;
         case EXPR_PATH:
             e->path = va_arg(args, struct ast_path *);
+            e->ershov_number = 1;
+            e->left_child = true;
             break;
         case EXPR_UN:
             e->unary.op = va_arg(args, enum yytokentype);
             e->unary.expr = va_arg(args, struct ast_expr *);
+            e->ershov_number = e->unary.expr->ershov_number;
             break;
         case EXPR_ADDROF:
             e->addrof = va_arg(args, struct ast_expr *);
+            e->ershov_number = e->addrof->ershov_number;
             break;
         default:
             fprintf(stderr, "unknown expr type...");
