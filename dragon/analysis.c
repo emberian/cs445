@@ -6,67 +6,73 @@
 #include "util.h"
 #include "analysis.h"
 
-// from the bithacks page
-static const char LogTable256[256] =
-{
-#define LT(n) n, n, n, n, n, n, n, n, n, n, n, n, n, n, n, n
-    -1, 0, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3,
-    LT(4), LT(5), LT(5), LT(6), LT(6), LT(6), LT(6),
-    LT(7), LT(7), LT(7), LT(7), LT(7), LT(7), LT(7), LT(7)
-#undef LT
-};
-
-static int log2i(unsigned v) {
-    unsigned r;     // r will be lg(v)
-    unsigned int t, tt; // temporaries
-
-    if (tt = v >> 16) {
-        r = (t = tt >> 8) ? 24 + LogTable256[t] : 16 + LogTable256[tt];
-    } else {
-        r = (t = v >> 8) ? 8 + LogTable256[t] : LogTable256[v];
-    }
-
-    return r;
-}
-
 // yup.
 
-#define NUM_REGS 16
-
-static char *REGS[NUM_REGS] = { "rax", "rbp", "rcx", "rsi", "rdi", "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15", "rdx" };
+static char *REGS[NUM_REGS] = { "rbx", "rcx", "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15", "rdx", "rsi", "rax", "rdi" };
 
 struct reg {
     char *name;
-    unsigned short mask;
-    unsigned short need_restore;
+    unsigned char which;
+    unsigned char need_restore;
 };
 
-struct reg reg_gimme(struct acx *acx) {
-    struct regset *rs = &acx->rs;
-    struct reg ret;
-    unsigned reg_to_use = log2i(rs->regs_used)
-    if (rs->regs_used == -1) {
-        ret.need_restore = rs->overflow++ % NUM_REGS;
-        ret.name = REGS[ret.need_restore];
-        ret.mask = 0;
-    } else {
-        int reg_bit = 2 << reg_to_use;
-        rs->regs_used &= ~reg_bit;
-        ret.need_restore = 0;
-        ret.mask = reg_bit;
-        ret.name = REGS[reg_to_use];
+// Initialize the register_set to conform to our calling convention, which has
+// rax-r8 caller-saved and r9-rdx callee saved.
+static void reg_init(struct register_set *rs) {
+    rs->overflow = 6;
+    for (int i = 0; i < NUM_REGS; i++) {
+        rs->regs_used[i] = false;
     }
+}
+
+static struct reg reg_gimme(struct acx *acx) {
+    struct register_set *rs = &acx->rs;
+    struct reg ret;
+    ret.need_restore = 0;
+
+    for (int i = 0; i < NUM_REGS; i++) {
+        if (!rs->regs_used[i]) {
+            rs->regs_used[i] = true;
+            ret.which = i;
+            ret.name = REGS[i];
+            return ret;
+        }
+    }
+
+    ret.need_restore = true;
+    ret.which = rs->overflow++ % NUM_REGS;
+    ret.name = REGS[ret.need_restore];
+    fprintf(acx->ofd, "push %s\n", ret.name);
 
     return ret;
 }
 
-void reg_takeitback(struct acx *acx, struct reg reg) {
-    if (reg.need_restore == 0) {
-        acx->rs.regs_used |= reg.mask;
+static void reg_takeitback(struct acx *acx, struct reg reg) {
+    if (reg.need_restore == false) {
+        acx->rs.regs_used[reg.which] = false;
     } else {
         acx->rs.overflow--;
         fprintf(acx->ofd, "pop %s\n", reg.name);
     }
+}
+
+static void save_registers(struct acx *acx) {
+    // *we* are responsible for saving r9-rdx if we are using them.
+    for (int i = 0; i < 6; i++) {
+        if (acx->rs.regs_used[i]) {
+            fprintf(acx->ofd, "push %s\n", REGS[i]);
+        }
+    }
+}
+
+static void restore_registers_except(struct acx *acx, struct reg r) {
+    // *we* are responsible for restoring r9-rdx if we are using them.
+    for (int i = 5; i >= 0; i--) {
+        if (acx->rs.regs_used[i] && i != r.which) {
+            fprintf(acx->ofd, "pop %s\n", REGS[i]);
+        }
+    }
+
 }
 
 struct resu {
@@ -117,9 +123,9 @@ static void register_output(struct acx *acx, struct ast_program *prog) {
 
 static void do_imports(struct acx *acx, struct ast_program *prog) {
     LFOREACH(char *import, prog->args)
-        if (strcmp(import, "input")) {
+        if (0 == strcmp(import, "input")) {
             register_input(acx, prog);
-        } else if (strcmp(import, "output")) {
+        } else if (0 == strcmp(import, "output")) {
             register_output(acx, prog);
         } else {
             span_err("no such library: `%s`", NULL, import);
@@ -154,7 +160,7 @@ static struct resu type_of_path(struct acx *acx, struct ast_path *p, bool comput
         }
         fprintf(acx->ofd, "mov %s, [display@ + %d]\n", reg.name, STAB_VAR(st, idx)->disp_offset * ABI_POINTER_ALIGN);
     } else {
-        fprintf(acx->ofd, "mov %s, rbp+%d\n", reg.name, STAB_VAR(st, idx)->stack_base_offset);
+        fprintf(acx->ofd, "lea %s, [rbp+%d]\n", reg.name, STAB_VAR(st, idx)->stack_base_offset);
     }
     t = STAB_VAR(st, idx)->type;
     ty = &STAB_TYPE(st, t)->ty;
@@ -194,7 +200,7 @@ static struct resu type_of_path(struct acx *acx, struct ast_path *p, bool comput
     ENDLFOREACH;
 
     if (compute_rvalue) {
-        fprintf(acx->ofd, "mov %s, [%s]\n", res.name, res.name);
+        fprintf(acx->ofd, "mov %s, [%s]\n", reg.name, reg.name);
     }
     res.reg = reg;
     res.type = t;
@@ -204,12 +210,12 @@ static struct resu type_of_path(struct acx *acx, struct ast_path *p, bool comput
 static struct resu analyze_expr(struct acx *, struct ast_expr *e, bool compute_rvalue);
 
 static void analyze_magic(struct acx *acx, int which, struct list *args) {
+    // portability note: calls into libc using the sysv abi.
     if (which == MAGIC_WRITELN || which == MAGIC_WRITE) {
         LFOREACH(struct ast_expr *e, args)
-            struct resu *r = M(struct resu);
-            *r = analyze_expr(acx, e, false);
+            struct resu r = analyze_expr(acx, e, false);
             char *callit;
-            switch (r->type) {
+            switch (r.type) {
                 case INTEGER_TYPE_IDX:
                     callit = "write_integer@";
                     break;
@@ -233,11 +239,11 @@ static void analyze_magic(struct acx *acx, int which, struct list *args) {
                     abort();
                     break;
             }
-            INSN(FCALL, strdup(callit), ptrvec_new(free, 1, r));
+            fprintf(acx->ofd, "push %s\ncall %s\nadd rsp, 8\n", r.reg.name, callit);
+            reg_takeitback(acx, r.reg);
         ENDLFOREACH;
-        // it's fine, putall can take anything.
         if (which == MAGIC_WRITELN) {
-            INSN(FCALL, strdup("write_newline@"), NULL);
+            fprintf(acx->ofd, "call write_newline@\n");
         }
     } else if (which == MAGIC_READ || which == MAGIC_READLN) {
         // needs lvalues.
@@ -247,10 +253,9 @@ static void analyze_magic(struct acx *acx, int which, struct list *args) {
                 print_expr(e, INDSZ);
                 span_err("but read/ln must be called with lvalues", NULL);
             }
-            struct resu *r = M(struct resu);
-            *r = analyze_expr(acx, e, false); // this will be either an ALLOC or an address computation.
+            struct resu r = analyze_expr(acx, e, false);
             char *callit;
-            switch (r->type) {
+            switch (r.type) {
                 case INTEGER_TYPE_IDX:
                     callit = "read_integer@";
                     break;
@@ -274,8 +279,11 @@ static void analyze_magic(struct acx *acx, int which, struct list *args) {
                     abort();
                     break;
             }
-            INSN(FCALL, strdup(callit), ptrvec_new(free, 1, r));
-            // the result should be a pointer to a value.
+            fprintf(acx->ofd, "push %s\ncall %s\nadd rsp, 8\n", r.reg.name, callit);
+            if (which == MAGIC_READLN) {
+                fprintf(acx->ofd, "call read_newline@\n");
+            }
+            reg_takeitback(acx, r.reg);
         ENDLFOREACH;
     } else {
         DIAG("bad magic %d!\n", which);
@@ -289,14 +297,17 @@ static struct resu analyze_call(struct acx *acx, struct ast_path *p, struct list
     CHKRESF(pty, list_last(p->components));
     struct stab_type *pt = STAB_TYPE(acx->st, pty);
     struct resu retv;
-    struct ptrvec *irargs = ptrvec_wcap(args->length, free);
 
     if (pt->magic != 0) {
         analyze_magic(acx, pt->magic, args);
         retv.type = VOID_TYPE_IDX;
-        ptrvec_free(irargs);
+        retv.reg.name = "";
+        retv.reg.which = 0;
+        retv.reg.need_restore = 0;
         return retv;
     }
+
+    save_registers(acx);
 
     if (pt->ty.tag != TYPE_FUNCTION) {
         print_path(p, 0); fflush(stdout); DIAG(" has type ");
@@ -312,22 +323,26 @@ static struct resu analyze_call(struct acx *acx, struct ast_path *p, struct list
 
     int i = 0;
     LFOREACH2(struct ast_expr *e, void *ft, args, pt->ty.func.args)
-        struct resu *et = M(struct resu);
-        *et = analyze_expr(acx, e, true);
-        if (!stab_types_eq(acx->st, et->type, STAB_VAR(acx->st, (size_t) ft)->type)) {
+        struct resu et = analyze_expr(acx, e, true);
+        if (!stab_types_eq(acx->st, et.type, STAB_VAR(acx->st, (size_t) ft)->type)) {
             DIAG("in "); stab_print_type(acx->st, pty, 0); fflush(stdout);
             span_diag("type of argument %d doesn't match declaration;", NULL, i);
             DIAG("expected:\n");
             INDENTE(INDSZ); stab_print_type(acx->st, STAB_VAR(acx->st, (size_t) ft)->type, INDSZ); fflush(stdout); DIAG("\n");
             DIAG("found:\n");
-            INDENTE(INDSZ); stab_print_type(acx->st, et->type, INDSZ); fflush(stdout);
+            INDENTE(INDSZ); stab_print_type(acx->st, et.type, INDSZ); fflush(stdout);
         }
-        ptrvec_push(irargs, YOLO et);
+        fprintf(acx->ofd, "push %s\n", et.reg.name);
         i++;
     ENDLFOREACH2;
 
     retv.type = pt->ty.func.retty;
-    retv.op = INSN(CALL, pt->cfunc, irargs);
+    retv.reg = reg_gimme(acx);
+    fprintf(acx->ofd, "push rbp\n%s\nmov rbp, rsp\ncall %s@\n", args->length == 0 ? "sub rsp, 8" : "", list_last(p->components));
+    fprintf(acx->ofd, "pop %s\npop rbp\n", retv.reg.name);
+
+    restore_registers_except(acx, retv.reg);
+
     return retv;
 }
 
@@ -376,7 +391,27 @@ static struct resu analyze_expr(struct acx *acx, struct ast_expr *e, bool comput
                 case '>':
                 case LE:
                 case GE:
-                    fprintf(acx->ofd, "cmp %s, %s\n", lty.reg.name, rty.reg.name); break;
+                    fprintf(acx->ofd, "cmp %s, %s\n", lty.reg.name, rty.reg.name);
+                    char *cc;
+                    switch ((int) e->binary.op) {
+                        case '=': cc = "e"; break;
+                        case NEQ: cc = "ne"; break;
+                        case '<': cc = "l"; break;
+                        case '>': cc = "g"; break;
+                        case LE: cc = "le"; break;
+                        case GE: cc = "ge"; break;
+                    }
+                    // get the 8-bit register.
+                    char *ihatex86 = strdup(rty.reg.name);
+                    ihatex86[0] = ihatex86[1];
+                    ihatex86[1] = 'l';
+                    ihatex86[2] = 0;
+                    fprintf(acx->ofd, "set%s %s\n", cc, ihatex86);
+                    fprintf(acx->ofd, "movzx %s, %s\n", lty.reg.name, ihatex86);
+                    free(ihatex86);
+                    retv.reg = lty.reg;
+                    reg_takeitback(acx, rty.reg);
+                    return retv;
                 case DIV:
                 case '/':
                     fprintf(acx->ofd, "push rdx\npush rax\nmov rax, %s\ncdq\nidiv %s\nmov %s, rax\npop rax\npop rdx\n",
@@ -394,10 +429,10 @@ static struct resu analyze_expr(struct acx *acx, struct ast_expr *e, bool comput
                     fprintf(acx->ofd, "imul %s, %s\n", lty.reg.name, rty.reg.name); break;
                 default:
                     span_err("unsupported binary operation token %d! (`%c`)", NULL, e->binary.op, isgraph(e->binary.op) ? e->binary.op : '_');
-                    retv.reg = lty;
+                    retv.reg = lty.reg;
                     break;
             }
-            retv.reg = lty;
+            retv.reg = lty.reg;
             reg_takeitback(acx, rty.reg);
             return retv;
         case EXPR_DEREF:
@@ -408,7 +443,7 @@ static struct resu analyze_expr(struct acx *acx, struct ast_expr *e, bool comput
             }
             retv.type = st->ty.pointer;
             retv.reg = pathty.reg;
-            fprintf(acx->ofd, "mov %s, [%s]\n", pathty.reg.name);
+            fprintf(acx->ofd, "mov %s, [%s]\n", pathty.reg.name, pathty.reg.name);
             return retv;
         case EXPR_IDX:
             pathty = type_of_path(acx, e->idx.path, false);
@@ -434,7 +469,7 @@ static struct resu analyze_expr(struct acx *acx, struct ast_expr *e, bool comput
         case EXPR_LIT:
             retv.type = INTEGER_TYPE_IDX;
             retv.reg = reg_gimme(acx);
-            printf(acx->ofd, "mov %s, %d\n", retv.reg.name, e->lit);
+            fprintf(acx->ofd, "mov %s, %s\n", retv.reg.name, e->lit);
             return retv;
         case EXPR_PATH:
             return type_of_path(acx, e->path, compute_rvalue);
@@ -445,7 +480,7 @@ static struct resu analyze_expr(struct acx *acx, struct ast_expr *e, bool comput
             } else if (ety.type != BOOLEAN_TYPE_IDX) {
                 span_err("tried to boolean-NOT a non-boolean", NULL);
             }
-            printf(acx->ofd, "not %s\n", ety.reg.name);
+            fprintf(acx->ofd, "not %s\n", ety.reg.name);
             return ety;
         case EXPR_ADDROF:
             fprintf(stderr, "EXPR_ADDROF not yet supported!\n"); abort();
@@ -507,7 +542,7 @@ static struct ast_path *check_assignability(struct acx *acx, struct ast_expr *e)
 
 static void analyze_stmt(struct acx *acx, struct ast_stmt *s) {
     struct resu lty, rty, sty, ety, cty;
-    int l0, l1, l2;
+    int l0, l1;
 
     if (!s) return;
 
@@ -544,8 +579,6 @@ static void analyze_stmt(struct acx *acx, struct ast_stmt *s) {
             l1 = acx->label++;
 
             fprintf(acx->ofd, ".L%d:\n", l0);
-            i3 = INSN(LD, i1, size_of_type(acx, INTEGER_TYPE_IDX));
-            i4 = INSN(LT, i3, ety.op);
             fprintf(acx->ofd, "cmp %s, %s\nje .L%d\n", sty.reg.name, ety.reg.name, l1);
 
             analyze_stmt(acx, s->foor.body);
@@ -564,15 +597,17 @@ static void analyze_stmt(struct acx *acx, struct ast_stmt *s) {
                 span_err("type of if condition not boolean", NULL);
             }
             l0 = acx->label++;
+            l1 = acx->label++;
 
-            i1 = INSN(BR, cty.op, NULL, NULL); // patch with l0, l1
-            fprintf(acx-ofd, "cmp %s, %s\njz .L%d\n", cty.reg.name, cty.reg.name, l0);
+            fprintf(acx->ofd, "cmp %s, 1\njne .L%d\n", cty.reg.name, l0);
             reg_takeitback(acx, cty.reg);
 
             analyze_stmt(acx, s->ite.then);
+            fprintf(acx->ofd, "jmp .L%d\n", l1);
 
             fprintf(acx->ofd, ".L%d:\n", l0);
-            analyze_stmt(acx, s->ite.elze); // TODO: Handle this being NULL (I suspect the CFG will be FUBAR)
+            analyze_stmt(acx, s->ite.elze);
+            fprintf(acx->ofd, ".L%d:\n", l1);
 
             break;
 
@@ -597,7 +632,7 @@ static void analyze_stmt(struct acx *acx, struct ast_stmt *s) {
             fprintf(acx->ofd, ".L%d:\n", l0);
 
             cty = analyze_expr(acx, s->wdo.cond, true);
-            fprintf(acx->ofd, "cmp %s, %s\njz .L%d\n", l1);
+            fprintf(acx->ofd, "cmp %s, %s\njz .L%d\n", cty.reg.name, cty.reg.name, l1);
             reg_takeitback(acx, cty.reg);
 
             analyze_stmt(acx, s->wdo.body);
@@ -616,13 +651,16 @@ static void analyze_subprog(struct acx *acx, struct ast_subdecl *s) {
     int old_label = acx->label;
     bool old_ret_assigned = acx->ret_assigned;
     enum subprogs old_cft = acx->current_func_type;
+    struct register_set saved_regs = acx->rs;
 
+    reg_init(&acx->rs);
     acx->current_func_name = s->name;
     acx->ret_assigned = false;
     acx->current_func_type = s->head->func.type;
     acx->label = 0;
 
-    int curr_var_offset = ABI_POINTER_SIZE; // skip over the return pointer
+    // global so that we get symbol names. makes easier to debug.
+    fprintf(acx->ofd, "global %s@\n%s@:\n", s->name, s->name);
 
     // add a new scope
     stab_enter(acx->st);
@@ -632,10 +670,16 @@ static void analyze_subprog(struct acx *acx, struct ast_subdecl *s) {
         stab_add_type(acx->st, t->name, t->type);
     ENDLFOREACH;
 
+    int argcount = s->head->func.args->length;
+
+    int curr_var_offset = 8 * (argcount+1);
+
     // add formal arguments...
     LFOREACH(struct ast_decls *d, s->head->func.args)
-        stab_add_decls(acx->st, d, false);
+        stab_add_decls(acx->st, d, &curr_var_offset, false); // TODO set stack_base_offset
     ENDLFOREACH;
+
+    curr_var_offset = 0;
 
     // add the variables...
     LFOREACH(struct ast_decls *d, s->decls)
@@ -669,24 +713,27 @@ static void analyze_subprog(struct acx *acx, struct ast_subdecl *s) {
     // now analyze the subprogram body.
     analyze_stmt(acx, s->body);
 
-    if (!acx->current_func->ty.func.ret_assigned && acx->current_func->ty.func.type == SUB_FUNCTION) {
-        span_err("return value of %s not assigned", NULL, acx->current_func->name);
+    if (!acx->ret_assigned && acx->current_func_type == SUB_FUNCTION) {
+        span_err("return value of %s not assigned", NULL, acx->current_func_name);
     }
 
-    fprintf(acx->ofd, "push rax\n");
+    struct reg r = reg_gimme(acx);
 
     // restore the display
     for (int i = captured->length - 1; i > 0; i--) {
         struct stab_var *v = captured->data[i];
-        fprintf(acx->ofd, "pop rax\nmov [display@ + %d], rax\n", v->disp_offset * ABI_POINTER_SIZE);
+        fprintf(acx->ofd, "pop %s\nmov [display@ + %d], %s\n", r.name, v->disp_offset * ABI_POINTER_SIZE, r.name);
     }
     ptrvec_free(captured);
+    reg_takeitback(acx, r);
 
-    if (acx->current_func->ty.func.type == SUB_FUNCTION) {
+    if (acx->current_func_type == SUB_FUNCTION) {
         // HACK: copy retval to outslot
-        fprintf(acx->ofd, "mov rax, [rbp + %d]\nmov [rbp-8], rax", STAB_VAR(acx->st, retslot)->stack_base_offset);
-        fprintf(acx->ofd, "pop rax\nret\n");
+        struct reg r = reg_gimme(acx);
+        fprintf(acx->ofd, "mov %s, [rbp + %d]\nmov [rbp], %s\n", r.name, STAB_VAR(acx->st, retslot)->stack_base_offset, r.name);
+        reg_takeitback(acx, r);
     }
+    fprintf(acx->ofd, "add rsp, %d\nret\n", curr_var_offset - ABI_POINTER_SIZE);
 
     // leave the new scope
     stab_leave(acx->st);
@@ -695,20 +742,24 @@ static void analyze_subprog(struct acx *acx, struct ast_subdecl *s) {
     acx->label = old_label;
     acx->ret_assigned = old_ret_assigned;
     acx->current_func_type = old_cft;
+    acx->rs = saved_regs;
 }
 
-struct acx analyze(struct ast_program *prog, int output_to) {
+struct acx analyze(struct ast_program *prog, FILE *output_to) {
     struct acx acx_;
     acx_.disp_offset = 0;
     acx_.st = stab_new();
     acx_.ofd = output_to;
-    acx_.rs = {.overflow = 0, .regs_used = ~0};
+    reg_init(&acx_.rs);
     acx_.toplevel = false;
     acx_.current_func_name = "@~unassignable~@";
     acx_.ret_assigned = false;
     acx_.current_func_type = SUB_PROCEDURE;
     acx_.label = 0;
     struct acx *acx = &acx_;
+
+    fprintf(acx->ofd, "; vim: ft=nasm\nextern write_integer@\nextern write_newline@\n"
+            "SECTION .bss\ndisplay@: db %d\nSECTION .text\n", acx->disp_offset+1 * ABI_POINTER_ALIGN);
 
     int curr_var_offset = 0; // no ret pointer to skip
     stab_enter(acx->st);
@@ -733,12 +784,16 @@ struct acx analyze(struct ast_program *prog, int output_to) {
         analyze_subprog(acx, d);
     ENDLFOREACH;
 
-    fprintf(acx->ofd, "sub rsp, %d\n", curr_var_offset);
+    fprintf(acx->ofd, "global main\nmain:\nmov rbp, rsp\n");
+    fprintf(acx->ofd, ";\nsub rsp, %d\n", curr_var_offset);
 
     HFOREACH(ent, ((struct stab_scope *)list_last(acx->st->chain))->vars)
         struct stab_var *v = STAB_VAR(acx->st, (size_t)ent->val);
         if (v->captured) {
-            fprintf(acx->ofd, "mov [display@ + %d], rbp+%d\n", v->disp_offset * ABI_POINTER_SIZE, v->stack_base_offset);
+            struct reg r = reg_gimme(acx);
+            fprintf(acx->ofd, "lea %s, [rbp+%d]\n", r.name, v->stack_base_offset);
+            fprintf(acx->ofd, "mov [display@ + %d], %s\n", v->disp_offset * ABI_POINTER_SIZE, r.name);
+            reg_takeitback(acx, r);
         }
     ENDHFOREACH;
 
@@ -747,7 +802,7 @@ struct acx analyze(struct ast_program *prog, int output_to) {
     // now analyze the program body.
     analyze_stmt(acx, prog->body);
 
-    acx->main = t.cfunc;
+    fprintf(acx->ofd, "; and we're done!\nmov rax, 60\nxor rdi, rdi\nsyscall\n");
 
     // and we're done!
     return acx_;

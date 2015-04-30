@@ -29,13 +29,11 @@ static void free_stab_type(struct stab_type *t) {
     D(t->defn);
     switch (t->ty.tag) {
         case TYPE_RECORD:
-            free_rec_layout(t->ty.record.layout);
             list_free(t->ty.record.fields);
             break;
 
         case TYPE_FUNCTION:
             list_free(t->ty.func.args);
-            func_free(t->cfunc);
             break;
 
         default:
@@ -186,11 +184,16 @@ size_t stab_add_var(struct stab *st, char *name, size_t type, YYLTYPE *span, int
     v->name = name;
     v->captured = false;
     v->disp_offset = -1;
-    v->stack_base_offset = *curr_var_offset;
-    // todo: alignment.
-    *curr_var_offset += STAB_TYPE(st, type)->size;
+    if (curr_var_offset) {
+        v->stack_base_offset = *curr_var_offset;
+        // todo: alignment.
+        *curr_var_offset += (add_to_locals ? 1 : -1) * STAB_TYPE(st, type)->size;
+    } else {
+        v->stack_base_offset = -1;
+    }
 
     size_t id = ptrvec_push(st->vars, YOLO v);
+    hash_insert(sc->vars, YOLO name, YOLO id);
 
     return id;
 }
@@ -229,11 +232,6 @@ static size_t stab_resolve_complex_type(struct stab *st, char *name, struct ast_
                 list_add(t->ty.record.fields, YOLO stab_record_field(field->name, stab_resolve_type(st, strdup(field->name), field->type)));
             ENDLFOREACH;
 
-            struct rec_layout *layout = compute_rec_layout(st, t->ty.record.fields);
-            t->size = layout->overall.size;
-            t->align = layout->overall.align;
-            t->ty.record.layout = layout;
-
             break;
 
         case TYPE_ARRAY:
@@ -253,11 +251,9 @@ static size_t stab_resolve_complex_type(struct stab *st, char *name, struct ast_
             LFOREACH(struct ast_decls *decl, ty->func.args)
                 LFOREACH(char *name, decl->names)
                     size_t id = stab_resolve_type(st, strdup(name), decl->type);
-                    list_add(t->ty.func.args, YOLO stab_add_var(st, strdup(name), id, NULL, false));
+                    list_add(t->ty.func.args, YOLO stab_add_var(st, strdup(name), id, NULL, NULL, false));
                 ENDLFOREACH;
             ENDLFOREACH;
-
-            t->cfunc = cfunc_new(t->ty.func.args);
 
             t->size = ABI_CLOSURE_SIZE; // XHAZARD
             t->align = ABI_CLOSURE_ALIGN; // XHAZARD
@@ -313,7 +309,7 @@ size_t stab_resolve_type(struct stab *st, char *name, struct ast_type *ty) {
     }
 }
 
-void stab_add_decls(struct stab *st, struct ast_decls *decls, bool arguments) {
+void stab_add_decls(struct stab *st, struct ast_decls *decls, int *off, bool arguments) {
     // unconditionally add these to the local scope if they're not defined
     // locally. shadow upper names.
     size_t type = stab_resolve_type(st, strdup("<decls>"), decls->type);
@@ -321,7 +317,7 @@ void stab_add_decls(struct stab *st, struct ast_decls *decls, bool arguments) {
         if (stab_has_local_var(st, (char *)var)) {
             span_err("%s is already defined", NULL, var);
         } else {
-            stab_add_var(st, strdup(var), type, NULL, !arguments);
+            stab_add_var(st, strdup(var), type, NULL, off, arguments);
         }
     ENDLFOREACH;
     //? stab_abort(st);
@@ -354,7 +350,6 @@ void stab_add_magic_func(struct stab *st, int which) {
     t->name = name;
     t->ty.tag = TYPE_FUNCTION;
     t->magic = which;
-    t->cfunc = cfunc_new(NULL);
     t->ty.func.args = NULL;
 
     size_t type = ptrvec_push(st->types, t);

@@ -5,7 +5,6 @@
 #include "parser.tab.h"
 #include "lexer.h"
 #include "ast.h"
-#include "translate.h"
 
 #define RESOLVE_FAILURE (-1)
 
@@ -20,6 +19,11 @@
 #define BOOLEAN_TYPE_IDX 3
 #define CHAR_TYPE_IDX 4
 #define VOID_TYPE_IDX 5
+
+#define ABI_POINTER_SIZE 8
+#define ABI_POINTER_ALIGN 8
+#define ABI_CLOSURE_SIZE 16
+#define ABI_CLOSURE_ALIGN 16
 
 struct stab {
     struct ptrvec *vars, *types;
@@ -82,11 +86,8 @@ struct stab_record_field {
     size_t type;
 };
 
-struct cir_func;
-
 struct stab_type {
     struct stab_resolved_type ty;
-    struct cir_func *cfunc;
     char *name;
     YYLTYPE *defn; // todo
     uint64_t size, align;
@@ -99,8 +100,8 @@ void stab_leave(struct stab *);
 struct stab *stab_new();
 void stab_free(struct stab *);
 
-void stab_add_decls(struct stab *, struct ast_decls *, bool);
-size_t stab_add_var(struct stab *st, char *name, size_t type, YYLTYPE *span, bool);
+void stab_add_decls(struct stab *, struct ast_decls *, int *, bool, bool);
+size_t stab_add_var(struct stab *st, char *name, size_t type, YYLTYPE *span, int *, bool);
 void stab_add_func(struct stab *, char *, struct ast_type *);
 void stab_add_magic_func(struct stab *, int);
 void stab_add_type(struct stab *, char *, struct ast_type *);

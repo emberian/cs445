@@ -1,12 +1,10 @@
 #include "ast.h"
 #include "analysis.h"
-#include "codegen.h"
 #include "driver.h"
 #include "driver.h"
 #include "lexer.h"
 #include "parser.tab.h"
 #include "token.h"
-#include "translate.h"
 
 void compile_input(char *program_source, size_t len, int options) {
     void *lexer;
@@ -66,33 +64,8 @@ void compile_input(char *program_source, size_t len, int options) {
         return;
     }
 
-    struct acx acx = analyze(program);
+    struct acx acx = analyze(program, stdout);
 
-    if (options & DUMP_IR) {
-        puts("digraph { compound=true");
-        struct ptrvec *v = acx.st->types;
-        struct stab_type *t;
-        func_print(acx.main, "<main>");
-        for (int i = 0; i < v->length; i++) {
-            t = ((struct stab_type**)v->data)[i];
-            if (t->ty.tag == TYPE_FUNCTION && t->magic == 0) {
-                func_print(t->cfunc, t->name);
-            }
-        }
-        puts("}");
-    }
-
-    if (options & NO_CODEGEN) {
-        free_program(program);
-        stab_free(acx.st);
-        func_free(acx.main);
-        ptrvec_free(acx.funcs);
-        return;
-    }
-
-    codegen(&acx);
     free_program(program);
     stab_free(acx.st);
-    func_free(acx.main);
-    ptrvec_free(acx.funcs);
 }

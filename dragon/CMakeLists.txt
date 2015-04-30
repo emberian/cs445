@@ -5,7 +5,7 @@ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=c99 -D_POSIX_C_SOURCE=200809L")
 set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -Wall -ggdb -O0 -fsanitize=address -fsanitize=undefined")
 #set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -Wall -ggdb -O0")
 
-set(dragon_sources pasprintf.c analysis.c ast.c translate.c symbol.c main.c util.c token.c driver.c codegen.c)
+set(dragon_sources pasprintf.c analysis.c ast.c symbol.c main.c util.c token.c driver.c)
 
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})

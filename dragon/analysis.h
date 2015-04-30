@@ -3,18 +3,20 @@
 
 #include "ast.h"
 #include "symbol.h"
+#include <stdio.h>
+
+#define NUM_REGS 14
 
 struct register_set {
     int overflow;
-    // bitmask of used registers. 1 if unused, 0 if used (to make ffs nice)
-    unsigned short regs_used;
+    bool regs_used[NUM_REGS];
 };
 
 struct acx {
     struct register_set rs;
     struct stab *st;
     int disp_offset;
-    int ofd;
+    FILE *ofd;
     bool toplevel;
     // per-function. should really be split into an fcx.
     enum subprogs current_func_type;
@@ -23,6 +25,6 @@ struct acx {
     int label;
 };
 
-struct acx analyze(struct ast_program *);
+struct acx analyze(struct ast_program *, FILE *);
 
 #endif
