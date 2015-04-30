@@ -66,7 +66,9 @@ access libc (for `printf` and `scanf`).
 # A Haiku, for your consideration
 
 x86 sucks.
+
 but writing compiler fun.
+
 [the tuna swim deep](./tuna.jpg).
 
 # Project Requirements
