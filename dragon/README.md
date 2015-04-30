@@ -5,15 +5,69 @@ For Clarkon University's CS445 course. A compiler of a subset of Pascal to
 
 # Known Deficiencies
 
-- On a non-syntax error, everything is leaked.
-- The compiler is somewhat inefficient, in that it is not structured as a
-  single pass and does a fair bit of shuffling data between representations. It's
-  easier to reason about and somewhat cleaner, though.
+- Semantic errors cause an abort after printing the message, instead of trying
+  to continue.
+- It is not possible to analyze without doing codegen.
+- Some aspects of codegen are rather broken. Nonlocal variable access causes
+  the stack to become misaligned in strange and mysterious ways. In general,
+  the generated code is very lightly tested. I suspect it would take only 5
+  more hours to iron out all of the remaining bugs. However, basically
+  everything except nonlocal variable access works.
+- No optimization of generated code.
 
 # Bragging Points
 
-- Supports records (structs) and pointers.
-- ASan and UBSan clean for all non-error testcases.
+- Supports records (structs), pointers, and type aliases.
+- Supports while-do and for.
+- Supports array indexing and assignment.
+- ASan and UBSan clean. This means that there are no memory leaks,
+  use-after-free, invalid memory access, or invocations of undefined C
+  behavior. When compilation is successful, all memory is freed. (On an error,
+  it just aborts, and leaks everything.)
+
+# Core data structures
+
+- `struct list` (`util.h`). A doubly-linked list, with a cached length and a pointer to
+  the tail element. Only ever used for iteration and append, so it serves very
+  well. Uses virtual calls for releasing elements But, really, I should just
+  be using the next datastructure everywhere, since I don't really need
+  constant-time remove...
+- `struct ptrvec` (`util.h`). A vector (dynamic array with geometric growth) of `void*`.
+  Uses virtual calls for releasing elements.
+- `struct hashmap` (`util.h`). A bone-dry chaining hashmap. Pretty boring and naive. Uses
+  virtual calls for hashing, comparison, and freeing keys/values. Works out
+  pretty well in practice.
+- The AST (`ast.h`). Uses a bunch of purpose-fit structs and tagged unions to
+  keep it typesafe and easy to use.
+- `struct stab` (`symbol.h`). The symbol table. Uses a... few tricks. Has a "chain" of
+  scopes that is walked to find if variables are defined. Has three
+  namespaces: variable, function, and type. Each of these has an arena that
+  all variables/functions/types are allocated in. See `stab_var` and
+  `stab_type` types.
+
+# Building
+
+If you're using `gcc`, edit the `CMakeLists.txt`, commenting out line 5 and
+uncommenting line 7. Then:
+
+- `mkdir build`
+- `cd build`
+- `cmake ..`
+- `make -j3`
+- `yasm -f elf64 ../rt.s` (I still haven't quite figured out how to get cmake
+  to do this for me.)
+
+Then, to invoke the compiler, you can use `./dragon test.p`. It will output
+NASM assembly. This can then be assembled and linked. My full toolchain looks
+like: `./dragon test.p > foo.s && yasm -f elf64 foo.s && gcc foo.o rt.o`. It's
+hardcoded to the Linux syscall ABI, and the SysV AMD64 calling convention to
+access libc (for `printf` and `scanf`).
+
+# A Haiku, for your consideration
+
+x86 sucks.
+but writing compiler fun.
+[the tuna swim deep](./tuna.jpg).
 
 # Project Requirements
 

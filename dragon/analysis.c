@@ -213,7 +213,7 @@ static void analyze_magic(struct acx *acx, int which, struct list *args) {
     // portability note: calls into libc using the sysv abi.
     if (which == MAGIC_WRITELN || which == MAGIC_WRITE) {
         LFOREACH(struct ast_expr *e, args)
-            struct resu r = analyze_expr(acx, e, false);
+            struct resu r = analyze_expr(acx, e, true);
             char *callit;
             switch (r.type) {
                 case INTEGER_TYPE_IDX:
@@ -622,20 +622,21 @@ static void analyze_stmt(struct acx *acx, struct ast_stmt *s) {
             ENDLFOREACH;
             break;
         case STMT_WDO:
-            if (cty.type != BOOLEAN_TYPE_IDX) {
-                span_err("type of while condition not boolean", NULL);
-            }
-
             l0 = acx->label++;
             l1 = acx->label++;
 
             fprintf(acx->ofd, ".L%d:\n", l0);
 
             cty = analyze_expr(acx, s->wdo.cond, true);
-            fprintf(acx->ofd, "cmp %s, %s\njz .L%d\n", cty.reg.name, cty.reg.name, l1);
+            if (cty.type != BOOLEAN_TYPE_IDX) {
+                span_err("type of while condition not boolean", NULL);
+            }
+
+            fprintf(acx->ofd, "cmp %s, 1\njne .L%d\n", cty.reg.name, l1);
             reg_takeitback(acx, cty.reg);
 
             analyze_stmt(acx, s->wdo.body);
+            fprintf(acx->ofd, "jmp .L%d\n", l0);
 
             fprintf(acx->ofd, ".L%d:\n", l1);
 

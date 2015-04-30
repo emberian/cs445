@@ -100,7 +100,7 @@ void stab_leave(struct stab *);
 struct stab *stab_new();
 void stab_free(struct stab *);
 
-void stab_add_decls(struct stab *, struct ast_decls *, int *, bool, bool);
+void stab_add_decls(struct stab *, struct ast_decls *, int *, bool);
 size_t stab_add_var(struct stab *st, char *name, size_t type, YYLTYPE *span, int *, bool);
 void stab_add_func(struct stab *, char *, struct ast_type *);
 void stab_add_magic_func(struct stab *, int);
