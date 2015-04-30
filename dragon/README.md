@@ -1,6 +1,6 @@
 # Dragon Project
 
-For Clarkon University's CS445 course. A compiler of a subset of Pascal to
+For Clarkson University's CS445 course. A compiler of a subset of Pascal to
 `x86_64` NASM assembly. Uses bison and flex, but nothing else.
 
 # Known Deficiencies
