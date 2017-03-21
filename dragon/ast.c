@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdarg.h>
 #include "token.h"
 #include "util.h"
 #include "ast.h"
