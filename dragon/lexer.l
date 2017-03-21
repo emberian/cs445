@@ -31,6 +31,7 @@ static void update_loc(YYLTYPE *yylloc, char *yytxt){
 %}
 
 %option reentrant bison-bridge bison-locations noyywrap yylineno
+%option prefix="drgl_"
 %option full
 
 %%
