@@ -31,6 +31,10 @@ struct list *list_empty(void (*dtor)(void*)) {
     return l;
 }
 
+bool list_is_empty(struct list *l) {
+    return l->length == 0;
+}
+
 void list_append(struct node *a, struct node *b) {
     assert(a->next == NULL);
     a->next = b;

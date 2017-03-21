@@ -67,6 +67,7 @@ struct list {
 
 struct list *list_new(void *, void (*)(void*));
 struct list *list_empty(void (*)(void*));
+bool list_is_empty(struct list *);
 void list_append(struct node *, struct node *);
 void list_add(struct list *, void *);
 void list_free(struct list *);
