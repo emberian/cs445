@@ -42,6 +42,14 @@ AND SUBPROGRAMS:
               a
             RIGHT:
               b
+  PROCEDURE WITH ARGUMENTS:
+  WITH SUBPROGRAMS:
+  AND VARIABLES
+  DOES:
+    ASSIGN
+      x
+    TO
+      LIT `4`
 DOES:
   APPLY `read` WITH:
     x
@@ -51,4 +59,7 @@ DOES:
     TO ARGS:
       x
       y
+  APPLY `nonlocal_varacc`
+  APPLY `writeln` WITH:
+    x
 -- done dumping ast --
