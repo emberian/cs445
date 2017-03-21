@@ -105,7 +105,7 @@ void print_stmt(struct ast_stmt *s, int indent) {
             INDENT;
             printf("APPLY `");
             print_path(s->apply.name, 0);
-            if (s->apply.args) {
+            if (!list_is_empty(s->apply.args)) {
                 puts("` WITH:");
                 LFOREACH(struct ast_expr *arg, s->apply.args)
                     print_expr(arg, indent+INDSZ);
