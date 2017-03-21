@@ -185,7 +185,7 @@ void hash_insert(struct hash_table *tab, void *key, void *val) {
     // check if it's already in the table
     LFOREACH(struct bucket_entry *ent, bucket)
         if (tab->comp(key, ent->key)) {
-            elt = ent->val;
+            elt = &ent->val;
         }
     ENDLFOREACH;
 
