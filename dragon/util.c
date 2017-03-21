@@ -230,7 +230,7 @@ void span_err(char *fmt, YYLTYPE *loc, ...) {
     va_start(args, loc);
     vfprintf(stderr, fmt, args);
     fputc('\n', stderr);
-    abort();
+    exit(1);
 }
 
 void span_diag(char *fmt, YYLTYPE *loc, ...) {
