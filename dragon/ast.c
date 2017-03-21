@@ -501,7 +501,7 @@ struct ast_decls *ast_decls(struct list *names, struct ast_type *type) {
     return n;
 }
 
-struct ast_expr *ast_expr(enum exprs tag, ...) {
+struct ast_expr *ast_expr(int tag, ...) {
     va_list args;
     va_start(args, tag);
 
@@ -547,7 +547,7 @@ struct ast_expr *ast_expr(enum exprs tag, ...) {
     return e;
 }
 
-struct ast_stmt *ast_stmt(enum stmts tag, ...) {
+struct ast_stmt *ast_stmt(int tag, ...) {
     va_list args;
     va_start(args, tag);
 
@@ -591,7 +591,7 @@ struct ast_stmt *ast_stmt(enum stmts tag, ...) {
     return s;
 }
 
-struct ast_type *ast_type(enum types tag, ...) {
+struct ast_type *ast_type(int tag, ...) {
     va_list args;
     va_start(args, tag);
 
