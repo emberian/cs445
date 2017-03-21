@@ -1,0 +1,35 @@
+ERROR: cannot assign incompatible type
+; vim: ft=nasm
+extern write_integer@
+extern write_newline@
+SECTION .bss
+display@: db 8
+SECTION .text
+global boo@
+boo@:
+sub rsp, -4
+mov rbx, [display@ + 0]
+mov rcx, 1
+mov [rbx], rcx
+add rsp, -4
+ret
+global main
+main:
+mov rbp, rsp
+;
+sub rsp, 8
+lea rbx, [rbp+0]
+mov [display@ + 0], rbx
+lea rbx, [rbp+0]
+push rbx
+lea rcx, [rbp+0]
+mov rcx, [rcx]
+push rcx
+push rbp
+
+mov rbp, rsp
+call boo@
+pop r8
+pop rbp
+pop rcx
+pop rbx

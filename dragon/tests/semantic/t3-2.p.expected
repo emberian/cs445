@@ -1,0 +1,17 @@
+ERROR: type of while condition not boolean
+; vim: ft=nasm
+extern write_integer@
+extern write_newline@
+SECTION .bss
+display@: db 8
+SECTION .text
+global main
+main:
+mov rbp, rsp
+;
+sub rsp, 8
+.L0:
+lea rbx, [rbp+0]
+mov rbx, [rbx]
+mov rcx, 123
+add rbx, rcx

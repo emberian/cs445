@@ -1,0 +1,47 @@
+in procedure boo
+; vim: ft=nasm
+extern write_integer@
+extern write_newline@
+SECTION .bss
+display@: db 8
+SECTION .text
+global boo@
+boo@:
+sub rsp, -4
+add rsp, -4
+ret
+global main
+main:
+mov rbp, rsp
+;
+sub rsp, 16
+lea rbx, [rbp+8]
+mov rbx, [rbx]
+DIAG: type of argument 0 doesn't match declaration;
+expected:
+integer
+      
+found:
+real
+      in procedure boo
+push rbx
+mov rcx, 10
+DIAG: type of argument 1 doesn't match declaration;
+expected:
+real
+      
+found:
+integer
+      too many arguments passed when calling procedure boo
+push rcx
+push rbp
+
+mov rbp, rsp
+call boo@
+pop r8
+pop rbp
+pop rcx
+pop rbx
+push rbx
+push rcx
+ERROR: wanted 2, given 3

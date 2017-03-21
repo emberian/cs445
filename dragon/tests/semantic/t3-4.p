@@ -4,6 +4,6 @@ program main( input, output );
   var x: real;
 begin
   for x := 1 to 5 do
-    a := a + 1;
+    a := a + 1
 end.
 

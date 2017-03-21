@@ -1,0 +1,15 @@
+ERROR: assigned to non-local in function
+; vim: ft=nasm
+extern write_integer@
+extern write_newline@
+SECTION .bss
+display@: db 8
+SECTION .text
+global foo@
+foo@:
+sub rsp, 0
+lea rbx, [rbp+0]
+mov rcx, [display@ + 0]
+mov rcx, [rcx]
+mov [rbx], rcx
+mov rbx, [display@ + 0]

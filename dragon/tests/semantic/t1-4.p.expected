@@ -1,0 +1,37 @@
+; vim: ft=nasm
+extern write_integer@
+extern write_newline@
+SECTION .bss
+display@: db 8
+SECTION .text
+global boo@
+boo@:
+global foo@
+foo@:
+sub rsp, -4
+add rsp, -4
+ret
+sub rsp, -4
+push rbp
+sub rsp, 8
+mov rbp, rsp
+call foo@
+pop rbx
+pop rbp
+add rsp, -4
+ret
+global main
+main:
+mov rbp, rsp
+;
+sub rsp, 0
+push rbp
+sub rsp, 8
+mov rbp, rsp
+call boo@
+pop rbx
+pop rbp
+; and we're done!
+mov rax, 60
+xor rdi, rdi
+syscall

@@ -1,0 +1,15 @@
+ERROR: tried to index array with non-integer
+; vim: ft=nasm
+extern write_integer@
+extern write_newline@
+SECTION .bss
+display@: db 8
+SECTION .text
+global main
+main:
+mov rbp, rsp
+;
+sub rsp, 40
+lea rbx, [rbp+0]
+lea rcx, [rbp+32]
+mov rcx, [rcx]

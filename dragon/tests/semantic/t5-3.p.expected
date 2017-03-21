@@ -1,0 +1,59 @@
+in function foo
+; vim: ft=nasm
+extern write_integer@
+extern write_newline@
+SECTION .bss
+display@: db 8
+SECTION .text
+global foo@
+foo@:
+sub rsp, 0
+lea rbx, [rbp+0]
+lea rcx, [rbp+24]
+mov rcx, [rcx]
+mov [rbx], rcx
+mov rbx, [rbp + 0]
+mov [rbp], rbx
+add rsp, 0
+ret
+global main
+main:
+mov rbp, rsp
+;
+sub rsp, 16
+lea rbx, [rbp+0]
+push rbx
+lea rcx, [rbp+8]
+mov rcx, [rcx]
+DIAG: type of argument 0 doesn't match declaration;
+expected:
+integer
+      
+found:
+real
+      in function foo
+push rcx
+lea r8, [rbp+0]
+mov r8, [r8]
+DIAG: type of argument 1 doesn't match declaration;
+expected:
+real
+      
+found:
+integer
+      too many arguments passed when calling function foo
+push r8
+push rbp
+
+mov rbp, rsp
+call foo@
+pop r9
+pop rbp
+pop r8
+pop rcx
+pop rbx
+push rbx
+push rcx
+push r8
+push r9
+ERROR: wanted 2, given 3

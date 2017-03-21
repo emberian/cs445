@@ -1,0 +1,12 @@
+ERROR: boo is already defined
+; vim: ft=nasm
+extern write_integer@
+extern write_newline@
+SECTION .bss
+display@: db 8
+SECTION .text
+global boo@
+boo@:
+sub rsp, -4
+add rsp, -4
+ret

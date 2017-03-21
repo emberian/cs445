@@ -1,0 +1,12 @@
+ERROR: resolution failure! variable `a` not found
+; vim: ft=nasm
+extern write_integer@
+extern write_newline@
+SECTION .bss
+display@: db 8
+SECTION .text
+global main
+main:
+mov rbp, rsp
+;
+sub rsp, 0

@@ -1,0 +1,10 @@
+ERROR: return value of foo not assigned
+; vim: ft=nasm
+extern write_integer@
+extern write_newline@
+SECTION .bss
+display@: db 8
+SECTION .text
+global foo@
+foo@:
+sub rsp, 0

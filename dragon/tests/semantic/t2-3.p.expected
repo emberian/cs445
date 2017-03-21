@@ -1,0 +1,29 @@
+DIAG: left:
+has type: real
+DIAG: right:
+has type: integer
+ERROR: incompatible types for binary operation
+; vim: ft=nasm
+extern write_integer@
+extern write_newline@
+SECTION .bss
+display@: db 8
+SECTION .text
+global main
+main:
+mov rbp, rsp
+;
+sub rsp, 16
+lea rbx, [rbp+0]
+lea rcx, [rbp+0]
+mov rcx, [rcx]
+mov r8, 1.23
+add rcx, r8
+mov [rbx], rcx
+lea rbx, [rbp+8]
+lea rcx, [rbp+8]
+mov rcx, [rcx]
+mov r8, 123
+  x
+      LIT `123`
+    
