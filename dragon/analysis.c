@@ -541,7 +541,8 @@ static struct ast_path *check_assignability(struct acx *acx, struct ast_expr *e)
 }
 
 static void analyze_stmt(struct acx *acx, struct ast_stmt *s) {
-    struct resu lty, rty, sty, ety, cty;
+    struct resu lty, rty, sty, ety, cty, ity;
+    struct ast_path *ipath;
     int l0, l1;
 
     if (!s) return;
@@ -567,6 +568,12 @@ static void analyze_stmt(struct acx *acx, struct ast_stmt *s) {
                 span_err("type of start not integer", NULL);
             } else if (ety.type != INTEGER_TYPE_IDX) {
                 span_err("type of end not integer", NULL);
+            }
+            ipath = ast_path(s->foor.id);
+            ity = type_of_path(acx, ipath, false);
+            free_path(ipath);
+            if (ity.type != INTEGER_TYPE_IDX) {
+                span_err("type of induction variable not integer", NULL);
             }
 
             /* enter scope for the induction variable */
